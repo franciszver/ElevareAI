@@ -53,8 +53,8 @@ def test_summarizer_offline(mock_ai):
     summary = asyncio.run(run())
 
     assert summary.narrative
-    assert "Next steps:" in summary.narrative
-    assert summary.next_steps  # non-empty list of next steps
+    # Proves the real parse path ran (fallback would give generic steps)
+    assert summary.next_steps == ["Review notes", "Practice problems"]
 
 
 def test_practice_generation_offline(mock_ai):

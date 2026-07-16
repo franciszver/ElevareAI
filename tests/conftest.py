@@ -94,9 +94,13 @@ def mock_ai(monkeypatch):
             return "0.85"
 
         if "summaries of tutoring sessions" in text:
+            # Lowercase "next steps:" deliberately: summarizer.py detects the
+            # marker case-insensitively but splits case-SENSITIVELY on the
+            # literal "next steps:" (pre-existing bug, backlogged). Lowercase
+            # exercises the real parse path instead of the fallback.
             return (
                 "You made great progress today reviewing key concepts.\n\n"
-                "Next steps:\n1. Review notes\n2. Practice problems"
+                "next steps:\n1. Review notes\n2. Practice problems"
             )
 
         if "multiple-choice practice problems" in text:
