@@ -25,27 +25,6 @@ class Settings(BaseSettings):
     db_max_overflow: int = Field(default=10, description="Max overflow connections")
 
     # ========================================================================
-    # AWS Configuration
-    # ========================================================================
-    aws_region: str = Field(default="us-east-1", description="AWS region")
-    aws_access_key_id: Optional[str] = Field(default=None, description="AWS access key")
-    aws_secret_access_key: Optional[str] = Field(
-        default=None, description="AWS secret key"
-    )
-
-    # SES
-    ses_from_email: str = Field(
-        default="noreply@example.com", description="SES from email"
-    )
-    ses_region: str = Field(default="us-east-1", description="SES region")
-
-    # S3
-    s3_bucket_name: Optional[str] = Field(
-        default=None, description="S3 bucket for transcripts"
-    )
-    s3_region: str = Field(default="us-east-1", description="S3 region")
-
-    # ========================================================================
     # OpenRouter Configuration
     # ========================================================================
     openrouter_api_key: str = Field(default="", description="OpenRouter API key")
