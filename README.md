@@ -196,13 +196,11 @@ docker-compose down
    docker compose up -d postgres
    ```
 
-5. **Set up database tables (and optionally seed demo data):**
+5. **Set up database tables and seed demo data:**
    ```bash
-   python scripts/setup_db.py
-
-   # Optional: seed demo data
    python scripts/seed_demo_data.py
    ```
+   This applies all database migrations and seeds a complete demo environment idempotently in one command.
 
 6. **Run the backend API:**
    ```bash
@@ -518,6 +516,27 @@ python scripts/create_staging_env.py
   - `deploy-aws-step5.ps1` - Frontend deployment (Steps 20-23)
 - AWS infrastructure setup scripts in `scripts/setup_aws_infrastructure.sh/.ps1`
 - Docker production configuration in `Dockerfile` (multi-stage build)
+
+### Database Recreation (Render Free PostgreSQL)
+
+Render's free PostgreSQL databases are deleted after ~30 days of inactivity. Restore a demo-ready database in ~5 minutes:
+
+1. Create new PostgreSQL database on [Render Dashboard](https://dashboard.render.com) and copy the External Database URL
+2. Parse credentials from URL (`postgresql://user:password@host:port/dbname`) and set environment variables:
+   ```env
+   DB_HOST=<host>
+   DB_PORT=<port>
+   DB_NAME=<dbname>
+   DB_USER=<user>
+   DB_PASSWORD=<password>
+   ```
+3. Run from local machine:
+   ```bash
+   python scripts/seed_demo_data.py
+   ```
+   This applies all migrations and idempotently seeds demo data.
+4. Demo credentials created: `demo@elevare.ai` / `tutor@elevare.ai` / `parent@elevare.ai` — password = the value you set in `DEMO_PASSWORD` (in `.env` locally, or the Render dashboard env)
+5. Update Render web service environment variables with new DB credentials, trigger redeploy, and log in to confirm.
 
 ---
 
