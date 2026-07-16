@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const TOKEN_KEY = 'elevare_token';
+export const TOKEN_KEY = 'elevare_token';
 
 // API Client Configuration - Updated 2025-11-08
 // Use proxy in development, direct URL in production
@@ -46,7 +46,9 @@ apiClient.interceptors.response.use(
       message: error.message
     });
 
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       console.log('[API] 401 - clearing token and redirecting to login');
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';

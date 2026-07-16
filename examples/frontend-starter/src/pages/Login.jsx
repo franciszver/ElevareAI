@@ -7,7 +7,7 @@ import { validators } from '../utils/validation';
 import './Login.css';
 
 function Login() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const { success, error: showError } = useToast();
   const navigate = useNavigate();
 
@@ -30,14 +30,12 @@ function Login() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    console.log('[LOGIN PAGE] Auth state check:', { isAuthenticated, hasToken: !!localStorage.getItem('elevare_token') });
-    if (isAuthenticated || localStorage.getItem('elevare_token')) {
-      console.log('[LOGIN PAGE] Already authenticated, redirecting to dashboard');
+    if (!loading && isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loading, navigate]);
 
-  if (isAuthenticated || localStorage.getItem('elevare_token')) {
+  if (isAuthenticated) {
     return <div>Redirecting...</div>;
   }
 
@@ -59,9 +57,6 @@ function Login() {
       success('Login successful!');
       
       setTimeout(() => {
-        const token = localStorage.getItem('elevare_token');
-        console.log('[LOGIN] After delay - token exists:', !!token);
-        console.log('[LOGIN] Navigating to dashboard...');
         navigate('/dashboard', { replace: true });
       }, 100);
     } else {

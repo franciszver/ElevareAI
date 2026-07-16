@@ -1,14 +1,18 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { login as apiLogin, register as apiRegister, getCurrentUser } from '../utils/auth';
+import { TOKEN_KEY } from '../services/apiClient';
 
 const AuthContext = createContext();
 
-export const TOKEN_KEY = 'elevare_token';
+export { TOKEN_KEY };
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Set when login/signup completes while the mount-time token validation may
+  // still be in flight, so its stale result doesn't clobber fresh auth state.
+  const authChangedRef = useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -21,10 +25,12 @@ export function AuthProvider({ children }) {
     // Validate the stored token against the backend
     getCurrentUser()
       .then((dbUser) => {
+        if (authChangedRef.current) return;
         setUser({ id: dbUser.id, email: dbUser.email, role: dbUser.role });
         setIsAuthenticated(true);
       })
       .catch(() => {
+        if (authChangedRef.current) return;
         localStorage.removeItem(TOKEN_KEY);
         setIsAuthenticated(false);
         setUser(null);
@@ -38,6 +44,7 @@ export function AuthProvider({ children }) {
     try {
       const { token, user: loggedInUser } = await apiLogin(email, password);
 
+      authChangedRef.current = true;
       localStorage.setItem(TOKEN_KEY, token);
       setIsAuthenticated(true);
       setUser(loggedInUser);

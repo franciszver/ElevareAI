@@ -1,4 +1,4 @@
-import apiClient from '../services/apiClient';
+import apiClient, { api } from '../services/apiClient';
 
 /**
  * Register a new user
@@ -38,6 +38,6 @@ export async function login(email, password) {
  * @returns {Promise<Object>} { id, email, role, ... }
  */
 export async function getCurrentUser() {
-  const response = await apiClient.get('/auth/me');
+  const response = await api.getCurrentUser();
   return response.data.data;
 }

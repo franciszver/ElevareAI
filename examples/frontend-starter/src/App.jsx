@@ -28,27 +28,14 @@ const queryClient = new QueryClient({
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
 
-  // Check localStorage as fallback (handles timing issues)
-  const hasToken = localStorage.getItem('elevare_token');
-
-  console.log('[PROTECTED] Route check:', {
-    isAuthenticated,
-    loading,
-    hasToken: !!hasToken,
-    path: window.location.pathname
-  });
-  
   if (loading) {
-    console.log('[PROTECTED] Still loading, showing loading screen');
     return <div>Loading...</div>;
   }
-  
-  if (isAuthenticated || hasToken) {
-    console.log('[PROTECTED] Access granted, rendering children');
+
+  if (isAuthenticated) {
     return children;
   }
-  
-  console.log('[PROTECTED] Access denied, redirecting to login');
+
   return <Navigate to="/login" replace />;
 }
 
