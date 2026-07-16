@@ -39,20 +39,21 @@ class EmailService:
         Returns:
             Send result
         """
-        # In production, integrate with:
-        # - AWS SES (Simple Email Service)
-        # - SendGrid
-        # - Mailgun
-        # - SMTP server
-
-        # This is a simplified implementation
-        logger.info(f"Sending email to {to_email}: {subject}")
+        # Email delivery is disabled for this demo app (AWS/SES access removed).
+        # This is a log-only no-op; no network call is made.
+        body_length = len(body_html or "") + len(body_text or "")
+        logger.info(
+            "Email delivery disabled (log-only no-op): recipient=%s subject=%r body_length=%d",
+            to_email,
+            subject,
+            body_length,
+        )
 
         return {
             "success": True,
             "message": "Email queued for delivery",
             "sent_at": datetime.utcnow().isoformat(),
-            "note": "In production, this would send via AWS SES/SendGrid/Mailgun",
+            "note": "Email delivery is disabled for this demo app",
         }
 
     def send_message_notification(

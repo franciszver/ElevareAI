@@ -1,53 +1,28 @@
 """
 Email Service
-Sends nudges via AWS SES
+Email delivery is disabled for this demo app (AWS/SES access removed).
+Sending is a log-only no-op that preserves the original function signature
+and return shape.
 """
 
-from typing import Optional
+import logging
 
-import boto3
-
-from src.config.settings import settings
+logger = logging.getLogger(__name__)
 
 
 def send_nudge_email(to_email: str, message: str, nudge_id: str) -> bool:
     """
-    Send nudge email via AWS SES
+    Log-only no-op replacement for the previous AWS SES send.
 
     Returns:
-        bool: True if sent successfully
+        bool: True (success-shaped, matching the previous "sent successfully" contract)
     """
-    try:
-        ses_client = boto3.client("ses", region_name=settings.ses_region)
-
-        # Create email content
-        subject = "Your Study Companion - Quick Update"
-        body_text = message
-        body_html = f"""
-        <html>
-        <body>
-            <p>{message.replace(chr(10), '<br>')}</p>
-            <p><small>This is an automated message from your AI Study Companion.</small></p>
-        </body>
-        </html>
-        """
-
-        # Send email
-        response = ses_client.send_email(
-            Source=settings.ses_from_email,
-            Destination={"ToAddresses": [to_email]},
-            Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {
-                    "Text": {"Data": body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": body_html, "Charset": "UTF-8"},
-                },
-            },
-        )
-
-        return True
-
-    except Exception as e:
-        # Log error but don't raise (nudges are non-critical)
-        print(f"SES email error: {e}")
-        return False
+    subject = "Your Study Companion - Quick Update"
+    logger.info(
+        "Email delivery disabled (log-only no-op): recipient=%s subject=%r body_length=%d nudge_id=%s",
+        to_email,
+        subject,
+        len(message),
+        nudge_id,
+    )
+    return True
