@@ -62,6 +62,12 @@ class Settings(BaseSettings):
         default=1440, description="JWT access token expiry in minutes"
     )
 
+    # Demo accounts
+    demo_password: str = Field(
+        default="",
+        description="Password for seeded demo accounts (set locally/in Render dashboard; never committed)",
+    )
+
     # ========================================================================
     # Feature Flags
     # ========================================================================

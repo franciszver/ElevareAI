@@ -13,21 +13,40 @@ import json
 from sqlalchemy.orm import Session
 from src.config.database import get_db_session
 from src.models.user import User
+from scripts.demo_auth import login, auth_headers
 
 BASE_URL = "http://localhost:8000"
+
+# Only demo@elevare.ai has a real password set by scripts/seed_demo_data.py.
+# Its user_id is fetched at runtime via /api/v1/auth/me (see get_token_and_user_id).
 DEMO_USERS = {
-    "demo_goal_complete@demo.com": "180bcad6-380e-4a2f-809b-032677fcc721",
-    "demo_sat_complete@demo.com": "0281a3c5-e9aa-4d65-ad33-f49a80a77a23",
-    "demo_chemistry@demo.com": "063009da-20a4-4f53-8f67-f06573f7195e",
-    "demo_low_sessions@demo.com": "e8bf67c3-57e6-405b-a1b5-80ac75aaf034",
-    "demo_multi_goal@demo.com": "c02cb7f8-e63c-4945-9406-320e1d9046f3",
-    "demo_qa@demo.com": "c0227285-166a-4a90-b7fd-d4d7e7ff4e39",
+    "demo@elevare.ai": None,
 }
+
+_TOKEN = None
+
+
+def get_token_and_user_id():
+    """Log in as the demo student account and resolve its real user_id via /me."""
+    global _TOKEN
+    try:
+        login_data = login("demo@elevare.ai")
+        _TOKEN = login_data["access_token"]
+        me_response = requests.get(
+            f"{BASE_URL}/api/v1/auth/me", headers=auth_headers(_TOKEN), timeout=10
+        )
+        me_response.raise_for_status()
+        user_id = me_response.json()["data"]["id"]
+    except Exception as e:
+        print(f"[FAIL] Login failed: {e} — is the backend running and the DB seeded?")
+        sys.exit(1)
+    DEMO_USERS["demo@elevare.ai"] = user_id
+    return user_id
 
 
 def get_mock_token():
-    """Get mock token for development mode"""
-    return "mock-token-demo-user"
+    """Return the real access token obtained via get_token_and_user_id()."""
+    return _TOKEN
 
 
 def test_health():
@@ -310,17 +329,16 @@ def main():
     if not test_health():
         print("\n❌ Server is not running. Please start it first.")
         return
-    
+
+    # Log in as the demo student account and resolve its real user_id
+    get_token_and_user_id()
+
     results = {}
-    
-    # Test each demo scenario
+
+    # Only demo@elevare.ai (the seeded headline student account) has a
+    # password to log in with, so all endpoint checks run against it.
     scenarios = {
-        "demo_goal_complete@demo.com": "Goal Completion -> Related Subjects",
-        "demo_sat_complete@demo.com": "SAT -> College Prep Pathway",
-        "demo_chemistry@demo.com": "Chemistry -> STEM Pathway",
-        "demo_low_sessions@demo.com": "Inactivity Nudge",
-        "demo_multi_goal@demo.com": "Multi-Goal Tracking",
-        "demo_qa@demo.com": "Q&A with Persistent History",
+        "demo@elevare.ai": "Demo Student Account",
     }
     
     for email, scenario_name in scenarios.items():
@@ -340,14 +358,14 @@ def main():
             "nudges": nudges_ok
         }
     
-    # Test Q&A with demo_qa account (has conversation history)
-    qa_user_id = DEMO_USERS["demo_qa@demo.com"]
-    qa_email = "demo_qa@demo.com"
+    # Test Q&A with the demo student account
+    qa_user_id = DEMO_USERS["demo@elevare.ai"]
+    qa_email = "demo@elevare.ai"
     qa_ok = test_qa_endpoint(qa_user_id, qa_email)
-    
-    # Test common endpoints with one user
-    test_user_id = DEMO_USERS["demo_multi_goal@demo.com"]
-    test_email = "demo_multi_goal@demo.com"
+
+    # Test common endpoints with the same user
+    test_user_id = DEMO_USERS["demo@elevare.ai"]
+    test_email = "demo@elevare.ai"
     
     goals_ok = test_goals_endpoint(test_user_id, test_email)
     practice_ok = test_practice_endpoint(test_user_id, test_email)

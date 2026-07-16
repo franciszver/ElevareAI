@@ -26,15 +26,41 @@ class TestDemoDataScript:
             pytest.fail(f"Failed to import seed_demo_data: {e}")
 
     def test_data_generation_structure(self):
-        """Test that generated data has correct structure"""
-        # This would test the actual data generation
-        # For now, verify the script structure
+        """Test that the script exposes the idempotent seeding API it now
+        uses to write directly to Postgres (deterministic IDs + get_or_create),
+        replacing the old in-memory generate_all_demo_data() approach."""
         import seed_demo_data
 
-        # Check that main functions exist
-        assert hasattr(
-            seed_demo_data, "generate_all_demo_data"
-        ) or "generate_all_demo_data" in dir(seed_demo_data)
+        assert hasattr(seed_demo_data, "deterministic_id")
+        assert hasattr(seed_demo_data, "get_or_create")
+        assert hasattr(seed_demo_data, "main")
+
+        # Same natural key -> same UUID (idempotency requirement)
+        id_a = seed_demo_data.deterministic_id("user", "demo@elevare.ai")
+        id_b = seed_demo_data.deterministic_id("user", "demo@elevare.ai")
+        assert id_a == id_b
+
+        # Different natural key -> different UUID
+        id_c = seed_demo_data.deterministic_id("user", "someone-else@elevare.ai")
+        assert id_a != id_c
+
+    def test_demo_accounts_defined(self):
+        """Test that the 3 headline demo accounts are defined with email/role/name"""
+        from scripts.seed_demo_data import DEMO_ACCOUNTS
+
+        assert len(DEMO_ACCOUNTS) == 3
+        roles = {a["role"] for a in DEMO_ACCOUNTS}
+        assert roles == {"student", "tutor", "parent"}
+        assert all("email" in a and "name" in a for a in DEMO_ACCOUNTS)
+
+    def test_seed_headline_accounts_requires_demo_password(self, monkeypatch):
+        """seed_headline_accounts must refuse to run (before any DB writes) if
+        DEMO_PASSWORD isn't configured."""
+        import scripts.seed_demo_data as seed_demo_data
+
+        monkeypatch.setattr(seed_demo_data.settings, "demo_password", "")
+        with pytest.raises(SystemExit):
+            seed_demo_data.seed_headline_accounts(db=None)
 
     def test_subjects_generated(self):
         """Test that subjects are generated correctly"""

@@ -13,68 +13,27 @@ import json
 from sqlalchemy.orm import Session
 from src.config.database import get_db_session
 from src.models.user import User
-from src.models.goal import Goal
-from src.models.session import Session as SessionModel
-from src.models.nudge import Nudge
-from src.models.qa import QAInteraction
-from datetime import datetime, timezone
+from scripts.demo_auth import login, auth_headers
 
 BASE_URL = "http://localhost:8000"
 
-# Demo accounts from DEMO_USER_GUIDE.md
+# The 3 headline demo accounts created with real passwords by
+# scripts/seed_demo_data.py (see DEMO_ACCOUNTS there). The other seeded
+# students/tutors have no password_hash and cannot log in, so they are not
+# verified here.
 DEMO_ACCOUNTS = {
-    "demo_goal_complete@demo.com": {
-        "scenario": "Goal Completion -> Related Subjects",
-        "expected": {
-            "completed_goals": 1,
-            "active_goals": 2,
-            "has_suggestions": True,
-            "suggestion_types": ["related_subject"]
-        }
+    "demo@elevare.ai": {
+        "scenario": "Headline demo student account",
+        "expected": {"role": "student"},
     },
-    "demo_sat_complete@demo.com": {
-        "scenario": "SAT Completion -> College Prep Pathway",
-        "expected": {
-            "completed_goals": 1,
-            "active_goals": 0,
-            "has_suggestions": True,
-            "suggestion_subjects": ["College Essays", "Study Skills", "AP Prep"]
-        }
+    "tutor@elevare.ai": {
+        "scenario": "Headline demo tutor account",
+        "expected": {"role": "tutor"},
     },
-    "demo_chemistry@demo.com": {
-        "scenario": "Chemistry -> Cross-Subject STEM Pathway",
-        "expected": {
-            "completed_goals": 1,
-            "active_goals": 0,
-            "has_suggestions": True,
-            "suggestion_subjects": ["Physics", "Biology", "AP Chemistry", "STEM Prep"]
-        }
+    "parent@elevare.ai": {
+        "scenario": "Headline demo parent account",
+        "expected": {"role": "parent"},
     },
-    "demo_low_sessions@demo.com": {
-        "scenario": "Inactivity Nudge (<3 Sessions by Day 7)",
-        "expected": {
-            "completed_goals": 0,
-            "active_goals": 1,
-            "sessions": 2,
-            "has_inactivity_nudge": True,
-            "user_age_days": 7
-        }
-    },
-    "demo_multi_goal@demo.com": {
-        "scenario": "Multi-Goal Progress Tracking",
-        "expected": {
-            "completed_goals": 0,
-            "active_goals": 3,
-            "has_elo_ratings": True
-        }
-    },
-    "demo_qa@demo.com": {
-        "scenario": "Conversational Q&A with Memory",
-        "expected": {
-            "has_goals": True,
-            "has_conversation_history": True
-        }
-    }
 }
 
 
@@ -97,151 +56,90 @@ def test_backend():
 
 
 def verify_account_data(email: str, expected: dict) -> dict:
-    """Verify account data in database"""
+    """Verify account exists in the database with the expected role.
+
+    Headline accounts (demo@elevare.ai, tutor@elevare.ai, parent@elevare.ai)
+    are not seeded with goals/sessions/QA history - those are only attached
+    to the 10 password-less student fixtures in seed_demo_data.py - so we
+    only check existence and role here.
+    """
     results = {"passed": True, "issues": []}
-    
+
     with get_db_session() as db:
         user = db.query(User).filter(User.email == email).first()
         if not user:
             results["passed"] = False
             results["issues"].append(f"User {email} does not exist in database")
             return results
-        
-        # Check goals
-        if "completed_goals" in expected:
-            completed = db.query(Goal).filter(
-                Goal.student_id == user.id,
-                Goal.status == "completed"
-            ).count()
-            if completed < expected["completed_goals"]:
-                results["passed"] = False
-                results["issues"].append(f"Expected {expected['completed_goals']} completed goals, found {completed}")
-        
-        if "active_goals" in expected:
-            active = db.query(Goal).filter(
-                Goal.student_id == user.id,
-                Goal.status == "active"
-            ).count()
-            if active < expected["active_goals"]:
-                results["passed"] = False
-                results["issues"].append(f"Expected {expected['active_goals']} active goals, found {active}")
-        
-        # Check sessions
-        if "sessions" in expected:
-            session_count = db.query(SessionModel).filter(
-                SessionModel.student_id == user.id
-            ).count()
-            if session_count != expected["sessions"]:
-                results["passed"] = False
-                results["issues"].append(f"Expected {expected['sessions']} sessions, found {session_count}")
-        
-        # Check user age
-        if "user_age_days" in expected:
-            now = datetime.now(timezone.utc)
-            created_at = user.created_at
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            else:
-                created_at = created_at.astimezone(timezone.utc)
-            days_ago = (now - created_at).days
-            if abs(days_ago - expected["user_age_days"]) > 1:
-                results["passed"] = False
-                results["issues"].append(f"Expected user age ~{expected['user_age_days']} days, found {days_ago}")
-        
-        # Check conversation history
-        if "has_conversation_history" in expected and expected["has_conversation_history"]:
-            conv_count = db.query(QAInteraction).filter(
-                QAInteraction.student_id == user.id
-            ).count()
-            if conv_count == 0:
-                results["issues"].append("No conversation history found (may be OK if not yet used)")
-        
-        # Check goals exist
-        if "has_goals" in expected and expected["has_goals"]:
-            goal_count = db.query(Goal).filter(Goal.student_id == user.id).count()
-            if goal_count == 0:
-                results["passed"] = False
-                results["issues"].append("Expected at least one goal, found none")
-    
+
+        if "role" in expected and user.role != expected["role"]:
+            results["passed"] = False
+            results["issues"].append(
+                f"Expected role {expected['role']}, found {user.role}"
+            )
+
     return results
 
 
-def test_progress_api(email: str, user_id: str, expected: dict) -> dict:
-    """Test progress API endpoint"""
+def test_login_api(email: str) -> dict:
+    """Test that the account can log in via POST /api/v1/auth/login."""
+    results = {"passed": True, "issues": [], "token": None, "user_id": None}
+    try:
+        login_data = login(email)
+        results["token"] = login_data["access_token"]
+        results["user_id"] = login_data["user_id"]
+    except Exception as e:
+        results["passed"] = False
+        results["issues"].append(f"Login failed: {str(e)}")
+    return results
+
+
+def test_progress_api(email: str, user_id: str, token: str) -> dict:
+    """Test progress API endpoint (student accounts only)"""
     results = {"passed": True, "issues": [], "data": {}}
-    
-    headers = {
-        "Authorization": "Bearer mock-token-demo-user",
-        "Content-Type": "application/json"
-    }
-    
+
+    headers = auth_headers(token)
+
     try:
         url = f"{BASE_URL}/api/v1/progress/{user_id}?include_suggestions=true"
         response = requests.get(url, headers=headers, timeout=10)
-        
+
         if response.status_code != 200:
             results["passed"] = False
             results["issues"].append(f"API returned status {response.status_code}: {response.text[:200]}")
             return results
-        
+
         data = response.json()
         if not data.get("success"):
             results["passed"] = False
             results["issues"].append(f"API returned success=false: {data.get('error', 'Unknown error')}")
             return results
-        
+
         progress_data = data.get("data", {})
         goals = progress_data.get("goals", [])
         suggestions = progress_data.get("suggestions", [])
-        
+
         results["data"] = {
             "goals": goals,
             "suggestions": suggestions
         }
-        
-        # Check suggestions
-        if "has_suggestions" in expected:
-            if expected["has_suggestions"] and len(suggestions) == 0:
-                results["passed"] = False
-                results["issues"].append("Expected suggestions but none found")
-            elif not expected["has_suggestions"] and len(suggestions) > 0:
-                results["issues"].append(f"Unexpected suggestions found: {len(suggestions)}")
-        
-        # Check specific suggestion subjects
-        if "suggestion_subjects" in expected:
-            found_subjects = [s.get("subject_name", "") for s in suggestions]
-            missing = [s for s in expected["suggestion_subjects"] if s not in found_subjects]
-            if missing:
-                results["issues"].append(f"Expected suggestion subjects not found: {missing}")
-        
-        # Check Elo ratings
-        if "has_elo_ratings" in expected and expected["has_elo_ratings"]:
-            goals_with_elo = [g for g in goals if g.get("elo_rating") is not None]
-            if len(goals_with_elo) == 0:
-                results["issues"].append("Expected Elo ratings on goals but none found")
-        
+
     except requests.exceptions.ConnectionError:
         results["passed"] = False
         results["issues"].append("Cannot connect to backend API (is it running?)")
     except Exception as e:
         results["passed"] = False
         results["issues"].append(f"API test error: {str(e)}")
-    
+
     return results
 
 
-def test_nudges_api(email: str, user_id: str, expected: dict) -> dict:
-    """Test nudges API endpoint"""
+def test_nudges_api(email: str, user_id: str, token: str) -> dict:
+    """Test nudges API endpoint (student accounts only)"""
     results = {"passed": True, "issues": [], "data": {}}
-    
-    if "has_inactivity_nudge" not in expected:
-        return results
-    
-    headers = {
-        "Authorization": "Bearer mock-token-demo-user",
-        "Content-Type": "application/json"
-    }
-    
+
+    headers = auth_headers(token)
+
     try:
         url = f"{BASE_URL}/api/v1/nudges/users/{user_id}"
         response = requests.get(url, headers=headers, timeout=10)
@@ -253,57 +151,40 @@ def test_nudges_api(email: str, user_id: str, expected: dict) -> dict:
         
         data = response.json()
         nudges = data.get("data", {}).get("nudges", [])
-        
+
         results["data"] = {"nudges": nudges}
-        
-        inactivity_nudges = [n for n in nudges if n.get("type") == "inactivity"]
-        
-        if expected["has_inactivity_nudge"]:
-            if len(inactivity_nudges) == 0:
-                results["passed"] = False
-                results["issues"].append("Expected inactivity nudge but none found")
-        else:
-            if len(inactivity_nudges) > 0:
-                results["issues"].append(f"Unexpected inactivity nudge found")
-        
+        # Headline account has no seeded nudges - just confirm the endpoint works.
+
     except Exception as e:
         results["passed"] = False
         results["issues"].append(f"Nudges API test error: {str(e)}")
-    
+
     return results
 
 
-def test_qa_api(email: str, user_id: str, expected: dict) -> dict:
-    """Test Q&A API endpoint"""
+def test_qa_api(email: str, user_id: str, token: str) -> dict:
+    """Test Q&A conversation-history endpoint (student accounts only)"""
     results = {"passed": True, "issues": [], "data": {}}
-    
-    if "has_conversation_history" not in expected:
-        return results
-    
-    headers = {
-        "Authorization": "Bearer mock-token-demo-user",
-        "Content-Type": "application/json"
-    }
-    
+
+    headers = auth_headers(token)
+
     try:
         url = f"{BASE_URL}/api/v1/enhancements/qa/conversation-history/{user_id}"
         response = requests.get(url, headers=headers, timeout=10)
-        
+
         if response.status_code != 200:
             results["issues"].append(f"Q&A history API returned status {response.status_code} (may be OK if no history)")
             return results
-        
+
         data = response.json()
         history = data.get("data", {}).get("conversations", [])
-        
+
         results["data"] = {"history": history}
-        
-        if expected["has_conversation_history"] and len(history) == 0:
-            results["issues"].append("Expected conversation history but none found (may be OK if not yet used)")
-        
+        # Headline account has no seeded conversation history - just confirm the endpoint works.
+
     except Exception as e:
         results["issues"].append(f"Q&A API test error: {str(e)}")
-    
+
     return results
 
 
@@ -346,7 +227,7 @@ def main():
             continue
         
         print(f"[OK] User found: {user_id}")
-        
+
         # Verify database data
         print("\n1. Verifying database data...")
         db_results = verify_account_data(email, config["expected"])
@@ -357,67 +238,77 @@ def main():
             for issue in db_results["issues"]:
                 print(f"      - {issue}")
             all_passed = False
-        
+
         if db_results["issues"]:
             for issue in db_results["issues"]:
                 print(f"      [NOTE] {issue}")
-        
-        # Test Progress API
-        print("\n2. Testing Progress API...")
-        progress_results = test_progress_api(email, user_id, config["expected"])
-        if progress_results["passed"]:
-            print("   [OK] Progress API working")
-            if progress_results["data"].get("goals"):
-                print(f"      Goals: {len(progress_results['data']['goals'])}")
-            if progress_results["data"].get("suggestions"):
-                print(f"      Suggestions: {len(progress_results['data']['suggestions'])}")
+
+        # Test real login (POST /api/v1/auth/login)
+        print("\n2. Testing login API...")
+        login_results = test_login_api(email)
+        if login_results["passed"]:
+            print(f"   [OK] Login successful, user_id={login_results['user_id']}")
         else:
-            print("   [FAIL] Progress API issues:")
-            for issue in progress_results["issues"]:
+            print("   [FAIL] Login issues:")
+            for issue in login_results["issues"]:
                 print(f"      - {issue}")
             all_passed = False
-        
-        if progress_results["issues"]:
-            for issue in progress_results["issues"]:
-                print(f"      [NOTE] {issue}")
-        
-        # Test Nudges API
-        print("\n3. Testing Nudges API...")
-        nudges_results = test_nudges_api(email, user_id, config["expected"])
-        if nudges_results["passed"]:
-            print("   [OK] Nudges API working")
-            if nudges_results["data"].get("nudges"):
-                print(f"      Nudges: {len(nudges_results['data']['nudges'])}")
+
+        token = login_results.get("token")
+        role = config["expected"].get("role")
+
+        progress_results = {"passed": True, "issues": []}
+        nudges_results = {"passed": True, "issues": []}
+        qa_results = {"passed": True, "issues": []}
+
+        if token and role == "student":
+            # Test Progress API
+            print("\n3. Testing Progress API...")
+            progress_results = test_progress_api(email, user_id, token)
+            if progress_results["passed"]:
+                print("   [OK] Progress API working")
+                if progress_results["data"].get("goals"):
+                    print(f"      Goals: {len(progress_results['data']['goals'])}")
+                if progress_results["data"].get("suggestions"):
+                    print(f"      Suggestions: {len(progress_results['data']['suggestions'])}")
+            else:
+                print("   [FAIL] Progress API issues:")
+                for issue in progress_results["issues"]:
+                    print(f"      - {issue}")
+                all_passed = False
+
+            # Test Nudges API
+            print("\n4. Testing Nudges API...")
+            nudges_results = test_nudges_api(email, user_id, token)
+            if nudges_results["passed"]:
+                print("   [OK] Nudges API working")
+                if nudges_results["data"].get("nudges"):
+                    print(f"      Nudges: {len(nudges_results['data']['nudges'])}")
+            else:
+                print("   [FAIL] Nudges API issues:")
+                for issue in nudges_results["issues"]:
+                    print(f"      - {issue}")
+                all_passed = False
+
+            # Test Q&A API
+            print("\n5. Testing Q&A API...")
+            qa_results = test_qa_api(email, user_id, token)
+            if qa_results["passed"]:
+                print("   [OK] Q&A API working")
+                if qa_results["data"].get("history"):
+                    print(f"      Conversation history: {len(qa_results['data']['history'])} items")
+            else:
+                print("   [FAIL] Q&A API issues:")
+                for issue in qa_results["issues"]:
+                    print(f"      - {issue}")
         else:
-            print("   [FAIL] Nudges API issues:")
-            for issue in nudges_results["issues"]:
-                print(f"      - {issue}")
-            all_passed = False
-        
-        if nudges_results["issues"]:
-            for issue in nudges_results["issues"]:
-                print(f"      [NOTE] {issue}")
-        
-        # Test Q&A API
-        print("\n4. Testing Q&A API...")
-        qa_results = test_qa_api(email, user_id, config["expected"])
-        if qa_results["passed"]:
-            print("   [OK] Q&A API working")
-            if qa_results["data"].get("history"):
-                print(f"      Conversation history: {len(qa_results['data']['history'])} items")
-        else:
-            print("   [FAIL] Q&A API issues:")
-            for issue in qa_results["issues"]:
-                print(f"      - {issue}")
-        
-        if qa_results["issues"]:
-            for issue in qa_results["issues"]:
-                print(f"      [NOTE] {issue}")
-        
+            print(f"\n3-5. Skipping progress/nudges/Q&A checks (role={role}, not a student)")
+
         # Summary for this account
         account_passed = (
-            db_results["passed"] and 
-            progress_results["passed"] and 
+            db_results["passed"] and
+            login_results["passed"] and
+            progress_results["passed"] and
             nudges_results["passed"]
         )
         
