@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const TOKEN_KEY = 'elevare_token';
+
 // API Client Configuration - Updated 2025-11-08
 // Use proxy in development, direct URL in production
 // If VITE_API_BASE_URL is set, append /api/v1 if not already present
@@ -23,7 +25,7 @@ const apiClient = axios.create({
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -43,25 +45,11 @@ apiClient.interceptors.response.use(
       url: error.config?.url,
       message: error.message
     });
-    
+
     if (error.response?.status === 401) {
-      // Only clear auth if it's actually an auth endpoint or if we're in production
-      // In development with mock auth, don't clear token on API 401s
-      const isAuthEndpoint = error.config?.url?.includes('/auth') || error.config?.url?.includes('/login');
-      const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
-      
-      if (isAuthEndpoint || !isDevelopment) {
-        console.log('[API] 401 on auth endpoint or production - clearing token');
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('id_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_id');
-        localStorage.removeItem('user_role');
-        localStorage.removeItem('user_email');
-        window.location.href = '/login';
-      } else {
-        console.log('[API] 401 in development (mock auth) - keeping token, just logging error');
-      }
+      console.log('[API] 401 - clearing token and redirecting to login');
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

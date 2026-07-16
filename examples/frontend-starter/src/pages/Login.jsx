@@ -30,14 +30,14 @@ function Login() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    console.log('[LOGIN PAGE] Auth state check:', { isAuthenticated, hasToken: !!localStorage.getItem('auth_token') });
-    if (isAuthenticated || localStorage.getItem('auth_token')) {
+    console.log('[LOGIN PAGE] Auth state check:', { isAuthenticated, hasToken: !!localStorage.getItem('elevare_token') });
+    if (isAuthenticated || localStorage.getItem('elevare_token')) {
       console.log('[LOGIN PAGE] Already authenticated, redirecting to dashboard');
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
-  
-  if (isAuthenticated || localStorage.getItem('auth_token')) {
+
+  if (isAuthenticated || localStorage.getItem('elevare_token')) {
     return <div>Redirecting...</div>;
   }
 
@@ -59,7 +59,7 @@ function Login() {
       success('Login successful!');
       
       setTimeout(() => {
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('elevare_token');
         console.log('[LOGIN] After delay - token exists:', !!token);
         console.log('[LOGIN] Navigating to dashboard...');
         navigate('/dashboard', { replace: true });

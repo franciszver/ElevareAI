@@ -27,16 +27,14 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  
+
   // Check localStorage as fallback (handles timing issues)
-  const hasToken = localStorage.getItem('auth_token');
-  const userId = localStorage.getItem('user_id');
-  
+  const hasToken = localStorage.getItem('elevare_token');
+
   console.log('[PROTECTED] Route check:', {
     isAuthenticated,
     loading,
     hasToken: !!hasToken,
-    userId,
     path: window.location.pathname
   });
   
