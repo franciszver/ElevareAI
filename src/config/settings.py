@@ -33,13 +33,6 @@ class Settings(BaseSettings):
         default=None, description="AWS secret key"
     )
 
-    # Cognito
-    cognito_user_pool_id: str = Field(default="", description="Cognito User Pool ID")
-    cognito_client_id: Optional[str] = Field(
-        default=None, description="Cognito Client ID"
-    )
-    cognito_region: str = Field(default="us-east-1", description="Cognito region")
-
     # SES
     ses_from_email: str = Field(
         default="noreply@example.com", description="SES from email"
@@ -82,6 +75,12 @@ class Settings(BaseSettings):
     # API Keys
     ai_service_api_key: Optional[str] = Field(
         default=None, description="Service API key"
+    )
+
+    # JWT Authentication
+    jwt_secret: str = Field(default="", description="JWT signing secret")
+    jwt_expiry_minutes: int = Field(
+        default=1440, description="JWT access token expiry in minutes"
     )
 
     # ========================================================================

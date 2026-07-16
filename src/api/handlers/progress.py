@@ -122,7 +122,7 @@ async def get_progress(
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
     else:
-        # Production: Verify user has access via Cognito
+        # Production: Verify user has access via database lookup
         user_sub = current_user.get("sub")
         # Try multiple ways to get email from Cognito token
         user_email = (

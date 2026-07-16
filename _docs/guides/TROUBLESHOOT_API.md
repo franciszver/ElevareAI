@@ -23,12 +23,12 @@ Open your browser's Developer Tools (F12) and check:
 1. Backend not running - Start with `.\START_SERVER.ps1`
 2. Wrong user_id format - Should be UUID like `180bcad6-380e-4a2f-809b-032677fcc721`
 3. CORS issue - Check browser console for CORS errors
-4. Authentication issue - Check if mock token is being sent
+4. Authentication issue - Check if a valid access token is being sent
 
 #### Issue: 401 Unauthorized
 - Check if `auth_token` is in localStorage
 - Check browser console for token being sent
-- Verify mock authentication is working
+- Verify the token was issued by `/api/v1/auth/login` and hasn't expired
 
 #### Issue: 404 Not Found
 - Check if user_id is correct UUID
@@ -59,10 +59,14 @@ Invoke-WebRequest -Uri "http://localhost:8000/health"
 
 ### Step 3: Test API Directly
 ```powershell
-# Test progress endpoint
+# Log in with demo credentials to get an access token
+$loginBody = @{ email = "demo@demo.com"; password = "demo-password" } | ConvertTo-Json
+$loginResp = Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/login" -Method Post -Body $loginBody -ContentType "application/json"
 $headers = @{
-    "Authorization" = "Bearer mock-token-123"
+    "Authorization" = "Bearer $($loginResp.access_token)"
 }
+
+# Test progress endpoint
 Invoke-WebRequest -Uri "http://localhost:8000/api/v1/progress/180bcad6-380e-4a2f-809b-032677fcc721" -Headers $headers
 ```
 
@@ -77,7 +81,7 @@ Invoke-WebRequest -Uri "http://localhost:8000/api/v1/progress/180bcad6-380e-4a2f
 When working correctly, you should see:
 ```
 [AUTH] Login called with email: demo_goal_complete@demo.com
-[AUTH] Generated token and userId: { token: 'mock-token-...', userId: '180bcad6-380e-4a2f-809b-032677fcc721' }
+[AUTH] Received access_token and userId: { userId: '180bcad6-380e-4a2f-809b-032677fcc721' }
 [DASHBOARD] Fetching progress for user: 180bcad6-380e-4a2f-809b-032677fcc721
 [DASHBOARD] Progress response: { success: true, data: {...} }
 ```
