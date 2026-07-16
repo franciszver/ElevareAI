@@ -85,7 +85,7 @@ docker-compose down
 
 - [Features](#-features)
 - [Architecture](#-architecture)
-- [Getting Started](#-getting-started)
+- [Local Development](#-local-development)
 - [API Documentation](#-api-documentation)
 - [Frontend Development](#-frontend-development)
 - [Deployment](#-deployment)
@@ -153,61 +153,86 @@ docker-compose down
 
 ---
 
-## 🚀 Getting Started
+## 🖥️ Local Development
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Docker (optional)
+- **Python 3.11+**
+- **Docker Desktop** (for local PostgreSQL)
+- **Node.js 18+** (repo verified with Node 24)
 
-### Installation
+### Backend Setup
 
-1. **Clone the repository**
+1. **Create and activate Python virtual environment:**
    ```bash
-   git clone <repository-url>
-   cd PennyGadget
+   # PowerShell (Windows)
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   
+   # Bash (Mac/Linux)
+   python -m venv .venv
+   source .venv/Scripts/activate
    ```
 
-2. **Set up Python environment**
+2. **Install dependencies:**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
-3. **Configure environment**
+3. **Configure environment:**
    ```bash
-   # Copy example environment file
    cp .env.example .env
-   
-   # Edit .env with your configuration
-   # Minimum required variables:
-   # - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
-   # - OPENAI_API_KEY
-   # - COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID (for authentication)
+   ```
+   For local development with Docker database, set:
+   ```env
+   DB_NAME=elevareai
+   DB_USER=postgres
+   DB_PASSWORD=postgres
+   DB_HOST=localhost
+   DB_PORT=5432
    ```
 
-4. **Set up database**
+4. **Start the database:**
    ```bash
-   # Create database and run migrations
+   docker compose up -d postgres
+   ```
+
+5. **Set up database tables (and optionally seed demo data):**
+   ```bash
    python scripts/setup_db.py
-   
-   # Or with custom env file
-   python scripts/setup_db.py --env-file .env
-   
-   # Optional: Seed demo data
+
+   # Optional: seed demo data
    python scripts/seed_demo_data.py
    ```
 
-5. **Run the server**
+6. **Run the backend API:**
    ```bash
-   python -m uvicorn src.api.main:app --reload
+   uvicorn src.api.main:app --reload --port 8000
    ```
+   Verify health: http://localhost:8000/health  
+   API docs: http://localhost:8000/docs
 
-6. **Access API documentation**
-   - Swagger UI: http://localhost:8000/docs
-   - ReDoc: http://localhost:8000/redoc
+### Frontend Setup
+
+```bash
+cd examples/frontend-starter
+npm ci
+npm run dev
+# Open http://localhost:5173
+```
+
+For production build: `npm run build`
+
+### Running Tests
+
+```bash
+# Run all tests from repo root (no database or .env required)
+pytest
+```
+
+Tests run with mocked AI calls via the `mock_ai` fixture in `tests/conftest.py`.  
+Expected: **110 passed, 1 skipped, 3 xfailed**
+
+**Note:** AI features at runtime require an API key (being migrated to OpenRouter); tests never need one.
 
 ---
 
