@@ -12,10 +12,10 @@ class OpenAIClient:
     """Wrapper for OpenAI API client"""
     
     def __init__(self):
-        self.client = openai.OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
-        self.temperature = settings.openai_temperature
-        self.max_tokens = settings.openai_max_tokens
+        self.client = openai.OpenAI(api_key=settings.openrouter_api_key, base_url=settings.openrouter_base_url)
+        self.model = settings.openrouter_model
+        self.temperature = settings.openrouter_temperature
+        self.max_tokens = settings.openrouter_max_tokens
     
     def chat_completion(
         self,

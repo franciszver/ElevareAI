@@ -17,7 +17,7 @@ This guide explains how to update the OpenAI API key for the deployed applicatio
 
 ## 📍 Where is the Key Stored?
 
-The `OPENAI_API_KEY` is stored in:
+The `OPENROUTER_API_KEY` is stored in:
 - **AWS Service:** ECS (Elastic Container Service)
 - **Location:** Task Definition environment variables
 - **Task Definition Family:** `elevareai-api` (or your project name)
@@ -49,7 +49,7 @@ The `OPENAI_API_KEY` is stored in:
 
 4. **Update the environment variable:**
    - Scroll to **Environment variables**
-   - Find `OPENAI_API_KEY`
+   - Find `OPENROUTER_API_KEY`
    - Update the value with your new key
    - Click **Update** (at bottom of container settings)
    - Click **Create** (to create the new task definition revision)
@@ -81,7 +81,7 @@ The `OPENAI_API_KEY` is stored in:
 
 ```powershell
 # 1. Set your new OpenAI API key
-$env:OPENAI_API_KEY = "sk-your-new-key-here"
+$env:OPENROUTER_API_KEY = "sk-your-new-key-here"
 
 # 2. Set your AWS profile (if using profiles)
 $env:AWS_PROFILE = "your-profile-name"
@@ -123,7 +123,7 @@ $TASK_DEF_JSON = @{
             @{ name = "COGNITO_USER_POOL_ID"; value = $COGNITO_USER_POOL_ID },
             @{ name = "COGNITO_CLIENT_ID"; value = $COGNITO_CLIENT_ID },
             @{ name = "COGNITO_REGION"; value = $REGION },
-            @{ name = "OPENAI_API_KEY"; value = $env:OPENAI_API_KEY },
+            @{ name = "OPENROUTER_API_KEY"; value = $env:OPENROUTER_API_KEY },
             @{ name = "ENVIRONMENT"; value = "production" },
             @{ name = "LOG_LEVEL"; value = "INFO" }
         )
@@ -178,7 +178,7 @@ Remove-Item "task-definition.json" -ErrorAction SilentlyContinue
 
 ```bash
 # 1. Set your new OpenAI API key
-export OPENAI_API_KEY="sk-your-new-key-here"
+export OPENROUTER_API_KEY="sk-your-new-key-here"
 
 # 2. Set AWS profile (if using profiles)
 export AWS_PROFILE="your-profile-name"
@@ -193,8 +193,8 @@ aws ecs describe-task-definition \
     --region $REGION \
     --query 'taskDefinition' > task-def-current.json
 
-# 5. Update OPENAI_API_KEY in the JSON
-# (Use jq or manually edit task-def-current.json to update the OPENAI_API_KEY value)
+# 5. Update OPENROUTER_API_KEY in the JSON
+# (Use jq or manually edit task-def-current.json to update the OPENROUTER_API_KEY value)
 
 # 6. Register new task definition
 aws ecs register-task-definition \
@@ -232,7 +232,7 @@ If you're using the deployment scripts:
 
 ```powershell
 # 1. Set your new OpenAI API key
-$env:OPENAI_API_KEY = "sk-your-new-key-here"
+$env:OPENROUTER_API_KEY = "sk-your-new-key-here"
 
 # 2. Set AWS profile
 $env:AWS_PROFILE = "your-profile-name"

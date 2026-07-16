@@ -44,12 +44,13 @@ class Settings(BaseSettings):
     s3_region: str = Field(default="us-east-1", description="S3 region")
     
     # ========================================================================
-    # OpenAI Configuration
+    # OpenRouter Configuration
     # ========================================================================
-    openai_api_key: str = Field(default="", description="OpenAI API key")
-    openai_model: str = Field(default="gpt-4", description="OpenAI model")
-    openai_temperature: float = Field(default=0.7, description="OpenAI temperature")
-    openai_max_tokens: int = Field(default=2000, description="OpenAI max tokens")
+    openrouter_api_key: str = Field(default="", description="OpenRouter API key")
+    openrouter_model: str = Field(default="openai/gpt-oss-20b:free", description="OpenRouter model")
+    openrouter_temperature: float = Field(default=0.7, description="OpenRouter temperature")
+    openrouter_max_tokens: int = Field(default=2000, description="OpenRouter max tokens")
+    openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter base URL")
     
     # ========================================================================
     # Application Configuration

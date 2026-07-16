@@ -60,7 +60,7 @@ Runs on pushes to `main` and version tags.
 Configure these secrets in GitHub repository settings:
 
 ### **CI Secrets:**
-- `OPENAI_API_KEY` - OpenAI API key for tests
+- `OPENROUTER_API_KEY` - OpenRouter API key for tests
 - `API_KEY` - Service API key
 
 ### **CD Secrets:**

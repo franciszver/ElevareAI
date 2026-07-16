@@ -34,7 +34,7 @@ jobs:
       DB_PASSWORD: postgres
       ENVIRONMENT: test
       LOG_LEVEL: INFO
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       API_KEY: ${{ secrets.API_KEY }}
 
     steps:

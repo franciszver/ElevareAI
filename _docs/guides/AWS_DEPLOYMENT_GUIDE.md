@@ -137,13 +137,13 @@ Or using psql:
 psql -h $DB_ENDPOINT -U elevareai_admin -d elevareai -f migrations/001_initial_schema.sql
 ```
 
-### Adding OpenAI API Key
+### Adding OpenRouter API Key
 
-After deployment, add your OpenAI API key to the ECS task definition:
+After deployment, add your OpenRouter API key to the ECS task definition:
 
 1. Go to AWS Console → ECS → Task Definitions → `elevareai-api`
 2. Create new revision
-3. Add environment variable: `OPENAI_API_KEY` = `your-key-here`
+3. Add environment variable: `OPENROUTER_API_KEY` = `sk-or-v1-your-key-here`
 4. Update ECS service to use new revision:
 
 ```powershell

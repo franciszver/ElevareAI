@@ -39,8 +39,8 @@ AWS_REGION=us-east-1
 COGNITO_USER_POOL_ID=your-pool-id
 COGNITO_CLIENT_ID=your-client-id
 
-# OpenAI
-OPENAI_API_KEY=sk-...
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-v1-...
 
 # Optional: Email Service
 AWS_SES_REGION=us-east-1
