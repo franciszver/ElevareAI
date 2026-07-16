@@ -84,6 +84,12 @@ class Settings(BaseSettings):
         default=None, description="Service API key"
     )
 
+    # JWT Authentication
+    jwt_secret: str = Field(default="", description="JWT signing secret")
+    jwt_expiry_minutes: int = Field(
+        default=1440, description="JWT access token expiry in minutes"
+    )
+
     # ========================================================================
     # Feature Flags
     # ========================================================================
