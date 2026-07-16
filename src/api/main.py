@@ -24,6 +24,18 @@ from src.models.base import Base
 from src.utils.logging_config import setup_logging
 
 
+def parse_allowed_origins(value: str) -> list[str]:
+    """Parse the ALLOWED_ORIGINS setting into a list for CORSMiddleware.
+
+    "*" (or empty/whitespace-only) means "allow all" and is passed through
+    as-is. Otherwise the value is split on commas with whitespace stripped.
+    """
+    value = value.strip()
+    if not value or value == "*":
+        return ["*"]
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan events for startup and shutdown"""
@@ -66,7 +78,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=parse_allowed_origins(settings.allowed_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

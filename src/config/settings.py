@@ -120,6 +120,14 @@ class Settings(BaseSettings):
     rails_app_url: Optional[str] = Field(default=None, description="Rails app URL")
     webhook_secret: Optional[str] = Field(default=None, description="Webhook secret")
 
+    # ========================================================================
+    # CORS Configuration
+    # ========================================================================
+    allowed_origins: str = Field(
+        default="*",
+        description="Comma-separated CORS origins; * allows all (dev)",
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
