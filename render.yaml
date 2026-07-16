@@ -1,0 +1,129 @@
+# render.yaml — Render Blueprint for ElevareAI
+#
+# Deploys three resources:
+#   1. elevareai-db        — free Postgres instance
+#   2. elevareai-api       — FastAPI backend (Python web service)
+#   3. elevareai-frontend  — React/Vite frontend (static site)
+#
+# ---------------------------------------------------------------------------
+# MANUAL STEPS REQUIRED AFTER "New Blueprint" DEPLOY (cannot be automated):
+#   - elevareai-api: OPENROUTER_API_KEY  -> set in Render dashboard (secret)
+#   - elevareai-api: DEMO_PASSWORD       -> set in Render dashboard (secret,
+#     only needed if/when you run the demo-account seed script; harmless to
+#     set even if unused)
+#
+# CIRCULAR URL NOTE:
+#   The backend's ALLOWED_ORIGINS and the frontend's VITE_API_BASE_URL each
+#   hardcode the *other* service's default onrender.com URL
+#   (https://elevareai-frontend.onrender.com and
+#   https://elevareai-api.onrender.com respectively). Render derives default
+#   service URLs from the `name` fields below, so these values are correct
+#   as long as the service names are not changed and no custom domain is
+#   attached. If you rename either service or add a custom domain, update
+#   the corresponding env var value here (or in the dashboard) to match.
+#
+# FREE TIER NOTES:
+#   - Free web services spin down after ~15 minutes of inactivity; the next
+#     request will incur a cold-start delay (up to ~1 minute).
+#   - Free Postgres databases on Render expire 30 days after creation and
+#     are deleted (not just suspended). Before expiry, upgrade the plan or
+#     back up/migrate data. See the deployment runbook in the README for the
+#     recovery/reseed procedure.
+# ---------------------------------------------------------------------------
+
+databases:
+  - name: elevareai-db
+    plan: free
+    databaseName: elevareai
+    user: elevareai
+
+services:
+  # ---------------------------------------------------------------------
+  # Backend API (FastAPI / uvicorn)
+  # ---------------------------------------------------------------------
+  - type: web
+    name: elevareai-api
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      # Database connection — app composes the URL itself from these parts
+      # (see src/config/settings.py get_database_url). There is no single
+      # DATABASE_URL setting.
+      - key: DB_HOST
+        fromDatabase:
+          name: elevareai-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: elevareai-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: elevareai-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: elevareai-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: elevareai-db
+          property: password
+
+      # OpenRouter (LLM provider) — API key must be entered manually in the
+      # Render dashboard after the first deploy; it is never committed here.
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-oss-20b:free
+      # OPENROUTER_BASE_URL intentionally omitted — app default
+      # (https://openrouter.ai/api/v1) is correct for production.
+
+      # JWT signing secret — required at startup; let Render generate a
+      # strong random value rather than setting one manually.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Demo account seeding — only needed when running the seed script;
+      # set manually in the dashboard (secret, never committed).
+      - key: DEMO_PASSWORD
+        sync: false
+
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Pin Python runtime version (Render python runtime honors this env
+      # var similarly to a runtime.txt pin).
+      - key: PYTHON_VERSION
+        value: 3.11.9
+
+      # CORS allow-list — points at the frontend static site's default URL.
+      # Adjust if the static site's `name` below changes or a custom domain
+      # is attached (see CIRCULAR URL NOTE above).
+      - key: ALLOWED_ORIGINS
+        value: https://elevareai-frontend.onrender.com
+
+  # ---------------------------------------------------------------------
+  # Frontend (React / Vite static site)
+  # ---------------------------------------------------------------------
+  - type: web
+    runtime: static
+    name: elevareai-frontend
+    plan: free
+    buildCommand: "cd examples/frontend-starter && npm ci && npm run build"
+    staticPublishPath: examples/frontend-starter/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Baked into the Vite build at BUILD TIME — must point at the backend
+      # service's URL + /api/v1. Matches elevareai-api's default onrender.com
+      # URL, derived from its `name` above (see CIRCULAR URL NOTE above).
+      - key: VITE_API_BASE_URL
+        value: https://elevareai-api.onrender.com/api/v1
