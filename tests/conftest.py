@@ -48,21 +48,24 @@ def db_session():
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session, monkeypatch):
     """Create a test client"""
     from src.config.database import get_db
-    
+
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
+    # Prevent app lifespan from hitting a real Postgres database on startup
+    monkeypatch.setattr("src.api.main.check_database_connection", lambda: True)
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     app.dependency_overrides.clear()
 
 
