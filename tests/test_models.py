@@ -197,6 +197,7 @@ class TestUser(TestBase, TimestampMixin):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     cognito_sub = Column(String(255), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=True)
     role = Column(String(20), nullable=False)
     profile = Column(JSON, default={})
     gamification = Column(JSON, default={})
