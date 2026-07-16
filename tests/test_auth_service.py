@@ -89,6 +89,20 @@ def test_empty_jwt_secret_raises_runtime_error(monkeypatch):
         create_access_token(sub="user-123", email="a@example.com", role="student")
 
 
+def test_decode_token_with_empty_secret_raises_runtime_error(monkeypatch):
+    # Sign a token with an empty secret (e.g. as jose would if the guard
+    # weren't in place), then verify decode_token refuses to decode it
+    # rather than silently succeeding with an empty verification key.
+    token = jose_jwt.encode(
+        {"sub": "user-123", "email": "a@example.com", "role": "student"},
+        "",
+        algorithm="HS256",
+    )
+    monkeypatch.setattr(settings, "jwt_secret", "")
+    with pytest.raises(RuntimeError):
+        decode_token(token)
+
+
 def test_default_expiry_minutes_used_when_not_specified():
     monkeypatch_expiry = 1440
     token = create_access_token(sub="user-123", email="a@example.com", role="student")

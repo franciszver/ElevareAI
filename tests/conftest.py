@@ -70,6 +70,11 @@ def client(db_session, monkeypatch):
     # Prevent app lifespan from hitting a real Postgres database on startup
     monkeypatch.setattr("src.api.main.check_database_connection", lambda: True)
 
+    # Lifespan now fails fast if JWT_SECRET is unset; give tests a value
+    # unless they've already set their own (e.g. via an autouse fixture).
+    if not settings.jwt_secret:
+        monkeypatch.setattr(settings, "jwt_secret", "test-secret-not-for-production")
+
     with TestClient(app) as test_client:
         yield test_client
 

@@ -54,13 +54,14 @@ async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    user = User(
-        cognito_sub=str(uuid4()),
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        role=payload.role,
+    user = ensure_user_exists(
+        db, cognito_sub=str(uuid4()), email=payload.email, role=payload.role
     )
-    db.add(user)
+    user.password_hash = hash_password(payload.password)
+    if payload.name:
+        profile = dict(user.profile or {})
+        profile["name"] = payload.name
+        user.profile = profile
     db.commit()
     db.refresh(user)
 

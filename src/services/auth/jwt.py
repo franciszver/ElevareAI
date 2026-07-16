@@ -43,6 +43,9 @@ def create_access_token(
 
 def decode_token(token: str) -> dict:
     """Decode and verify a JWT access token, raising InvalidTokenError on failure."""
+    if not settings.jwt_secret:
+        raise RuntimeError("JWT_SECRET not configured")
+
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
     except JWTError as e:

@@ -45,6 +45,46 @@ class TestRegister:
         assert stored.password_hash is not None
         assert stored.password_hash != "password123"
 
+        # Registered users should get the same enriched defaults that
+        # ensure_user_exists gives Cognito-created users, not a bare row.
+        assert stored.profile
+        assert stored.gamification == {
+            "xp": 0,
+            "level": 1,
+            "badges": [],
+            "streaks": 0,
+        }
+        assert stored.analytics == {
+            "total_sessions": 0,
+            "total_practice_items": 0,
+            "total_qa_interactions": 0,
+            "override_count": 0,
+        }
+
+    def test_register_stores_name_in_profile_when_provided(self, client, db_session):
+        resp = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "named@example.com",
+                "password": "password123",
+                "name": "Ada Lovelace",
+            },
+        )
+        assert resp.status_code == 201
+
+        stored = db_session.query(TestUser).filter_by(email="named@example.com").one()
+        assert stored.profile["name"] == "Ada Lovelace"
+
+    def test_register_without_name_does_not_crash(self, client, db_session):
+        resp = client.post(
+            "/api/v1/auth/register",
+            json={"email": "noname@example.com", "password": "password123"},
+        )
+        assert resp.status_code == 201
+
+        stored = db_session.query(TestUser).filter_by(email="noname@example.com").one()
+        assert stored.profile
+
     def test_register_duplicate_email_returns_409(self, client, db_session):
         _create_user(db_session, "dupe@example.com", password_hash="somehash")
 

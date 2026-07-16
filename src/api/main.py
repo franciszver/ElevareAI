@@ -43,6 +43,11 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Database connection failed on startup")
     logger.info("Database connection verified")
 
+    # Verify JWT secret is configured
+    if not settings.jwt_secret:
+        logger.critical("JWT_SECRET is not configured")
+        raise RuntimeError("JWT_SECRET must be configured")
+
     yield
 
     # Shutdown
