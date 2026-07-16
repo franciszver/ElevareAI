@@ -71,3 +71,59 @@ def test_practice_generation_offline(mock_ai):
     assert item["correct_answer"] in ("A", "B", "C", "D")
     assert item["answer_text"]
     assert item["explanation"]
+
+
+def test_practice_generation_requests_json_object_format(monkeypatch):
+    """generate_with_context must ask the model for a JSON object response so
+    gpt-oss-20b (and similar models) don't emit raw LaTeX/backslashes that
+    break json.loads."""
+    from src.services.ai.openai_client import openai_client
+
+    captured = {}
+
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
+        captured["response_format"] = response_format
+        return (
+            '{"question_text": "What is 2+2?", '
+            '"choices": ["A) 3", "B) 4", "C) 5", "D) 6"], '
+            '"correct_answer": "B", '
+            '"answer_text": "4", '
+            '"explanation": "2 + 2 equals 4."}'
+        )
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+
+    service = PracticeQualityService()
+    service.generate_with_context(
+        subject="Math",
+        topic="Algebra",
+        difficulty_level=3,
+    )
+
+    assert captured["response_format"] == {"type": "json_object"}
+
+
+def test_confidence_requests_higher_max_tokens(monkeypatch):
+    """calculate_confidence must give reasoning models (e.g. gpt-oss-20b) enough
+    max_tokens headroom for hidden reasoning, or the visible content comes back
+    empty with finish_reason=length."""
+    from src.services.ai.openai_client import openai_client
+
+    captured = {}
+
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
+        captured["max_tokens"] = max_tokens
+        return "0.85"
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+
+    calculate_confidence(
+        query="What is the Pythagorean theorem?",
+        answer="a^2 + b^2 = c^2 for right triangles.",
+    )
+
+    assert captured["max_tokens"] == 400

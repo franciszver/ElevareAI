@@ -3,23 +3,24 @@ FastAPI Application
 Main entry point for AI Study Companion API
 """
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from sqlalchemy.exc import SQLAlchemyError
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
-from src.config.settings import settings
-from src.config.database import engine, check_database_connection
-from src.models.base import Base
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.api.middleware.error_handlers import (
-    validation_exception_handler,
     database_exception_handler,
-    general_exception_handler
+    general_exception_handler,
+    validation_exception_handler,
 )
-from src.api.middleware.request_logging import RequestLoggingMiddleware
 from src.api.middleware.metrics import MetricsMiddleware
+from src.api.middleware.request_logging import RequestLoggingMiddleware
+from src.config.database import check_database_connection, engine
+from src.config.settings import settings
+from src.models.base import Base
 from src.utils.logging_config import setup_logging
 
 
@@ -29,21 +30,21 @@ async def lifespan(app: FastAPI):
     # Startup
     logger = logging.getLogger(__name__)
     logger.info("Starting AI Study Companion API...")
-    
+
     # Setup logging
     setup_logging()
-    
+
     # Store environment in app state for error handling
     app.state.environment = settings.environment
-    
+
     # Verify database connection
     if not check_database_connection():
         logger.error("Database connection failed on startup")
         raise RuntimeError("Database connection failed on startup")
     logger.info("Database connection verified")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down AI Study Companion API...")
 
@@ -54,7 +55,7 @@ app = FastAPI(
     description="Persistent AI agent supporting students between tutoring sessions",
     version="1.1.4",
     lifespan=lifespan,
-    redirect_slashes=False  # Disable automatic trailing slash redirects to prevent HTTP redirects behind proxy
+    redirect_slashes=False,  # Disable automatic trailing slash redirects to prevent HTTP redirects behind proxy
 )
 
 # CORS middleware
@@ -85,7 +86,7 @@ async def root():
     return {
         "service": "AI Study Companion API",
         "version": "1.1.4",
-        "status": "operational"
+        "status": "operational",
     }
 
 
@@ -95,7 +96,7 @@ async def health_check():
     db_status = check_database_connection()
     return {
         "status": "healthy" if db_status else "unhealthy",
-        "database": "connected" if db_status else "disconnected"
+        "database": "connected" if db_status else "disconnected",
     }
 
 
@@ -103,20 +104,32 @@ async def health_check():
 async def get_metrics():
     """
     Get application metrics
-    
+
     Note: In production, protect this endpoint with authentication
     """
     from src.utils.metrics import get_metrics
-    
+
     metrics = get_metrics()
-    return {
-        "success": True,
-        "data": metrics.get_all_metrics()
-    }
+    return {"success": True, "data": metrics.get_all_metrics()}
 
 
 # Import routers
-from src.api.handlers import auth, summaries, practice, qa, progress, nudges, overrides, messaging, dashboards, advanced_analytics, integrations, enhancements, goals, jobs
+from src.api.handlers import (
+    advanced_analytics,
+    auth,
+    dashboards,
+    enhancements,
+    goals,
+    integrations,
+    jobs,
+    messaging,
+    nudges,
+    overrides,
+    practice,
+    progress,
+    qa,
+    summaries,
+)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(summaries.router, prefix="/api/v1")
@@ -136,10 +149,10 @@ app.include_router(jobs.router, prefix="/api/v1")
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "src.api.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.environment == "development"
+        reload=settings.environment == "development",
     )
-

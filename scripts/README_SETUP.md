@@ -47,7 +47,7 @@ Copy values from `.aws-config-development.env` to your `.env` file:
 Copy-Item .aws-config-development.env .env
 
 # Edit .env and add:
-# - OPENAI_API_KEY=sk-your-key-here
+# - OPENROUTER_API_KEY=sk-or-v1-your-key-here
 # - Any other missing values
 ```
 

@@ -129,7 +129,7 @@ docker-compose down
 - **Framework**: FastAPI (Python 3.11+)
 - **Database**: PostgreSQL 15+
 - **ORM**: SQLAlchemy 2.0
-- **AI/LLM**: OpenAI GPT-4 (via LangChain)
+- **AI/LLM**: OpenRouter (free-tier openai/gpt-oss-20b:free model)
 - **Authentication**: AWS Cognito JWT
 - **Email**: AWS SES
 - **Testing**: Pytest (127 tests)
@@ -232,7 +232,7 @@ pytest
 Tests run with mocked AI calls via the `mock_ai` fixture in `tests/conftest.py`.  
 Expected: **110 passed, 1 skipped, 3 xfailed**
 
-**Note:** AI features at runtime require an API key (being migrated to OpenRouter); tests never need one.
+**Note:** AI features at runtime require an OpenRouter API key (sk-or-v1-... format) for the free-tier model openai/gpt-oss-20b:free; tests never need one.
 
 ---
 
@@ -279,11 +279,9 @@ SES_REGION=us-east-1
 S3_BUCKET_NAME=your-bucket-name
 S3_REGION=us-east-1
 
-# OpenAI Configuration
-OPENAI_API_KEY=your-openai-key
-OPENAI_MODEL=gpt-4
-OPENAI_TEMPERATURE=0.7
-OPENAI_MAX_TOKENS=2000
+# OpenRouter Configuration
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
 
 # Application Configuration
 ENVIRONMENT=development

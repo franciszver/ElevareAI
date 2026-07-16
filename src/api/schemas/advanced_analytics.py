@@ -3,13 +3,15 @@ Advanced Analytics Schemas
 Request/response models for advanced analytics endpoints
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
 from datetime import datetime
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class OverridePatternsResponse(BaseModel):
     """Override patterns analysis response"""
+
     total_overrides: int
     by_subject_difficulty: Dict[str, int]
     by_tutor: Dict[str, int]
@@ -21,6 +23,7 @@ class OverridePatternsResponse(BaseModel):
 
 class ConfidenceTelemetryResponse(BaseModel):
     """Confidence telemetry analysis response"""
+
     total_interactions: int
     total_corrected: int
     correction_rate: float
@@ -31,6 +34,7 @@ class ConfidenceTelemetryResponse(BaseModel):
 
 class RetentionMetricsResponse(BaseModel):
     """Retention metrics response"""
+
     cohort_size: int
     cohort_period: Dict
     retention_rates: Dict[str, float]
@@ -39,6 +43,7 @@ class RetentionMetricsResponse(BaseModel):
 
 class EngagementScoreResponse(BaseModel):
     """User engagement score response"""
+
     user_id: str
     engagement_score: float
     score_breakdown: Dict
@@ -48,6 +53,7 @@ class EngagementScoreResponse(BaseModel):
 
 class ABTestRequest(BaseModel):
     """Request to create an A/B test"""
+
     test_name: str = Field(..., description="Unique test name")
     description: str = Field(..., description="Test description")
     variants: List[Dict] = Field(..., description="List of variant configurations")
@@ -57,6 +63,7 @@ class ABTestRequest(BaseModel):
 
 class ABTestResultsResponse(BaseModel):
     """A/B test results response"""
+
     test_name: str
     period: Dict
     variants: Dict
@@ -64,4 +71,3 @@ class ABTestResultsResponse(BaseModel):
     total_sent: int
     total_opened: int
     total_clicked: int
-

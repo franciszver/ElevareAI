@@ -37,9 +37,9 @@
    Copy-Item .aws-config-development.env .env
    ```
 
-2. Edit `.env` and add your OpenAI API key:
+2. Edit `.env` and add your OpenRouter API key:
    ```
-   OPENAI_API_KEY=sk-your-actual-key-here
+   OPENROUTER_API_KEY=sk-or-v1-your-actual-key-here
    ```
 
 ## Step 3: Set Up Database

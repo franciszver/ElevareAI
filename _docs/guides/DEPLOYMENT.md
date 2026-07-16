@@ -48,9 +48,9 @@ COGNITO_USER_POOL_ID=your-pool-id
 COGNITO_CLIENT_ID=your-client-id
 COGNITO_REGION=us-east-1
 
-# OpenAI
-OPENAI_API_KEY=your-openai-key
-OPENAI_MODEL=gpt-4
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
+OPENROUTER_MODEL=openai/gpt-oss-20b:free
 
 # API
 API_KEY=your-api-key
@@ -129,7 +129,7 @@ docker-compose down -v
 | `DB_PORT` | PostgreSQL port | `5432` |
 | `ENVIRONMENT` | Environment (development/production) | `development` |
 | `LOG_LEVEL` | Logging level | `INFO` |
-| `OPENAI_API_KEY` | OpenAI API key | Required |
+| `OPENROUTER_API_KEY` | OpenRouter API key | Required |
 | `API_KEY` | Service-to-service API key | Optional |
 
 ### **Port Configuration**

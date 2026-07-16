@@ -6,7 +6,7 @@ Get the AI Study Companion platform up and running in minutes.
 
 - Python 3.11+
 - PostgreSQL 15+ (or Docker)
-- OpenAI API key
+- OpenRouter API key (sk-or-v1-... format)
 - AWS Cognito (for authentication)
 
 ## 1. Clone & Setup
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Create `.env` file:
 ```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/ai_study_companion
-OPENAI_API_KEY=sk-your-key-here
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
 AWS_REGION=us-east-1
 COGNITO_USER_POOL_ID=your-pool-id
 COGNITO_CLIENT_ID=your-client-id

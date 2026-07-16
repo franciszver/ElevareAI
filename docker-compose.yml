@@ -48,9 +48,10 @@ services:
       COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:-}
       COGNITO_REGION: ${COGNITO_REGION:-us-east-1}
       
-      # OpenAI
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4}
+      # OpenRouter
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-oss-20b:free}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       
       # API Settings
       API_KEY: ${API_KEY:-}
