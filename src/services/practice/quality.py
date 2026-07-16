@@ -4,31 +4,33 @@ Quality validation and improvement for generated practice items
 """
 
 import json
+import random
 import re
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
 from src.services.ai.openai_client import openai_client
 from src.services.ai.prompts import PromptTemplates
 
 
 class PracticeQualityService:
     """Service for validating and improving practice item quality"""
-    
+
     def __init__(self):
         self.openai = openai_client
-    
+
     def validate_practice_item(self, item: Dict) -> Dict:
         """
         Validate practice item quality
-        
+
         Args:
             item: Practice item dict with question_text, answer_text, explanation, choices, correct_answer
-        
+
         Returns:
             Validation result with quality_score and issues
         """
         issues = []
         quality_score = 1.0
-        
+
         # Check question quality
         question = item.get("question_text", "").strip()
         if not question:
@@ -40,7 +42,7 @@ class PracticeQualityService:
         elif len(question) > 500:
             issues.append("Question too long (maximum 500 characters)")
             quality_score -= 0.1
-        
+
         # Check multiple choice format
         choices = item.get("choices", [])
         if not choices or not isinstance(choices, list):
@@ -52,13 +54,13 @@ class PracticeQualityService:
         elif len(choices) > 4:
             issues.append(f"Too many choices (expected 4, got {len(choices)})")
             quality_score -= 0.1
-        
+
         # Check correct answer
         correct_answer = item.get("correct_answer", "").strip().upper()
         if not correct_answer or correct_answer not in ["A", "B", "C", "D"]:
             issues.append("Missing or invalid correct_answer (must be A, B, C, or D)")
             quality_score -= 0.3
-        
+
         # Check answer quality
         answer = item.get("answer_text", "").strip()
         if not answer:
@@ -67,7 +69,7 @@ class PracticeQualityService:
         elif len(answer) < 5:
             issues.append("Answer too short")
             quality_score -= 0.2
-        
+
         # Check explanation quality
         explanation = item.get("explanation", "").strip()
         if not explanation:
@@ -76,49 +78,49 @@ class PracticeQualityService:
         elif len(explanation) < 30:
             issues.append("Explanation too short (minimum 30 characters)")
             quality_score -= 0.1
-        
+
         # Check for common issues
-        if "?" not in question and "what" not in question.lower() and "how" not in question.lower():
+        if (
+            "?" not in question
+            and "what" not in question.lower()
+            and "how" not in question.lower()
+        ):
             issues.append("Question may not be properly formatted")
             quality_score -= 0.1
-        
+
         quality_score = max(0.0, quality_score)
-        
+
         return {
             "quality_score": round(quality_score, 2),
             "is_valid": quality_score >= 0.7,
-            "issues": issues
+            "issues": issues,
         }
-    
+
     def improve_practice_item(
-        self,
-        item: Dict,
-        subject: str,
-        topic: str,
-        difficulty_level: int
+        self, item: Dict, subject: str, topic: str, difficulty_level: int
     ) -> Dict:
         """
         Improve practice item quality using AI
-        
+
         Args:
             item: Practice item to improve
             subject: Subject name
             topic: Topic name
             difficulty_level: Difficulty level
-        
+
         Returns:
             Improved practice item
         """
         validation = self.validate_practice_item(item)
-        
+
         if validation["is_valid"]:
             return item
-        
+
         # Use AI to improve the item
         improvement_prompt = [
             {
                 "role": "system",
-                "content": f"You are an expert educational content creator. Improve the following practice question for {subject} - {topic} (Difficulty: {difficulty_level}/10)."
+                "content": f"You are an expert educational content creator. Improve the following practice question for {subject} - {topic} (Difficulty: {difficulty_level}/10).",
             },
             {
                 "role": "user",
@@ -134,57 +136,75 @@ Please provide an improved version in JSON format:
   "question_text": "...",
   "answer_text": "...",
   "explanation": "..."
-}}"""
-            }
+}}""",
+            },
         ]
-        
+
         try:
             ai_response = self.openai.chat_completion(improvement_prompt)
-            
+
             # Try to parse JSON response
-            json_match = re.search(r'\{[^{}]*"question_text"[^{}]*\}', ai_response, re.DOTALL)
+            json_match = re.search(
+                r'\{[^{}]*"question_text"[^{}]*\}', ai_response, re.DOTALL
+            )
             if json_match:
                 improved = json.loads(json_match.group())
                 return improved
-            
+
             # Fallback: parse similar to generator
             return self._parse_improved_response(ai_response, item)
-            
+
         except Exception as e:
             # Return original if improvement fails
             return item
-    
+
     def _parse_improved_response(self, response: str, original: Dict) -> Dict:
         """Parse improved response from AI"""
         # Try to extract sections
-        question_match = re.search(r'(?:question|q):\s*(.+?)(?:\n|answer|$)', response, re.IGNORECASE | re.DOTALL)
-        answer_match = re.search(r'(?:answer|a):\s*(.+?)(?:\n|explanation|$)', response, re.IGNORECASE | re.DOTALL)
-        explanation_match = re.search(r'(?:explanation|explain):\s*(.+?)$', response, re.IGNORECASE | re.DOTALL)
-        
+        question_match = re.search(
+            r"(?:question|q):\s*(.+?)(?:\n|answer|$)",
+            response,
+            re.IGNORECASE | re.DOTALL,
+        )
+        answer_match = re.search(
+            r"(?:answer|a):\s*(.+?)(?:\n|explanation|$)",
+            response,
+            re.IGNORECASE | re.DOTALL,
+        )
+        explanation_match = re.search(
+            r"(?:explanation|explain):\s*(.+?)$", response, re.IGNORECASE | re.DOTALL
+        )
+
         return {
-            "question_text": question_match.group(1).strip() if question_match else original.get("question_text", ""),
-            "answer_text": answer_match.group(1).strip() if answer_match else original.get("answer_text", ""),
-            "explanation": explanation_match.group(1).strip() if explanation_match else original.get("explanation", "")
+            "question_text": question_match.group(1).strip()
+            if question_match
+            else original.get("question_text", ""),
+            "answer_text": answer_match.group(1).strip()
+            if answer_match
+            else original.get("answer_text", ""),
+            "explanation": explanation_match.group(1).strip()
+            if explanation_match
+            else original.get("explanation", ""),
         }
-    
+
     def generate_with_context(
         self,
         subject: str,
         topic: str,
         difficulty_level: int,
         student_history: Optional[List[Dict]] = None,
-        goal_tags: Optional[List[str]] = None
+        goal_tags: Optional[List[str]] = None,
     ) -> Dict:
         """
         Generate practice item with student context
-        
+
         Args:
             subject: Subject name
             topic: Topic name
             difficulty_level: Difficulty level
             student_history: List of previous practice attempts
             goal_tags: Goal tags for alignment
-        
+
         Returns:
             Generated practice item
         """
@@ -195,55 +215,63 @@ Please provide an improved version in JSON format:
             context_str = "\n\nStudent's recent practice history:\n"
             for attempt in recent_attempts:
                 context_str += f"- {attempt.get('topic', 'Unknown')}: {'Correct' if attempt.get('correct') else 'Incorrect'}\n"
-        
+
         # Enhanced prompt with context
         prompt = PromptTemplates.practice_generation_prompt(
             subject=subject,
             topic=topic,
             difficulty_level=difficulty_level,
-            goal_tags=goal_tags
+            goal_tags=goal_tags,
         )
-        
+
         # Add context to prompt
         if context_str and len(prompt) > 0:
             if prompt[0].get("role") == "system":
                 prompt[0]["content"] += context_str
-        
+
         try:
             ai_response = self.openai.chat_completion(prompt)
-            
+
             # Try JSON parsing first
-            json_match = re.search(r'\{[^{}]*(?:"question_text"|"choices")[^{}]*\}', ai_response, re.DOTALL)
+            json_match = re.search(
+                r'\{[^{}]*(?:"question_text"|"choices")[^{}]*\}', ai_response, re.DOTALL
+            )
             if json_match:
                 try:
                     item = json.loads(json_match.group())
                     # Ensure multiple choice format
-                    if "choices" not in item or not isinstance(item.get("choices"), list):
+                    if "choices" not in item or not isinstance(
+                        item.get("choices"), list
+                    ):
                         # Generate choices if missing
                         item = self._add_multiple_choice_format(item)
                     # Validate and improve if needed
                     validation = self.validate_practice_item(item)
                     if not validation["is_valid"]:
-                        item = self.improve_practice_item(item, subject, topic, difficulty_level)
+                        item = self.improve_practice_item(
+                            item, subject, topic, difficulty_level
+                        )
                     return item
                 except json.JSONDecodeError:
                     pass
-            
+
             # Fallback to text parsing with multiple choice generation
             return self._parse_text_response(ai_response)
-            
+
         except Exception as e:
             # Return multiple choice format even for errors
             error_answer = "Answer generation failed. Please consult your tutor."
-            choices, correct_answer = self._generate_multiple_choice_options(error_answer)
+            choices, correct_answer = self._generate_multiple_choice_options(
+                error_answer
+            )
             return {
                 "question_text": f"Practice question for {subject} - {topic} (Difficulty: {difficulty_level})",
                 "answer_text": error_answer,
                 "choices": choices,
                 "correct_answer": correct_answer,
-                "explanation": f"AI generation encountered an error: {str(e)}"
+                "explanation": f"AI generation encountered an error: {str(e)}",
             }
-    
+
     def _parse_text_response(self, response: str) -> Dict:
         """Parse text response into practice item with multiple choice format"""
         question_text = ""
@@ -251,16 +279,21 @@ Please provide an improved version in JSON format:
         explanation = ""
         choices = []
         correct_answer = None
-        
+
         # Try to find multiple choice format (A), B), C), D))
-        choice_pattern = r'([A-D])[\)\.]\s*([^\n]+)'
+        choice_pattern = r"([A-D])[\)\.]\s*([^\n]+)"
         found_choices = re.findall(choice_pattern, response, re.IGNORECASE)
-        
+
         if len(found_choices) >= 4:
             # Found multiple choice format
-            choices = [f"{letter.upper()}) {text.strip()}" for letter, text in found_choices[:4]]
+            choices = [
+                f"{letter.upper()}) {text.strip()}"
+                for letter, text in found_choices[:4]
+            ]
             # Try to find which is correct
-            correct_match = re.search(r'(?:correct|answer|right).*?([A-D])', response, re.IGNORECASE)
+            correct_match = re.search(
+                r"(?:correct|answer|right).*?([A-D])", response, re.IGNORECASE
+            )
             if correct_match:
                 correct_answer = correct_match.group(1).upper()
                 # Extract the correct answer text
@@ -273,79 +306,104 @@ Please provide an improved version in JSON format:
             answer_text = self._extract_answer(response)
             if answer_text:
                 # Generate 3 distractors and format as multiple choice
-                choices, correct_answer = self._generate_multiple_choice_options(answer_text, response)
+                choices, correct_answer = self._generate_multiple_choice_options(
+                    answer_text, response
+                )
                 # Extract answer text from the correct choice
                 for choice in choices:
                     if choice.startswith(f"{correct_answer})"):
                         answer_text = choice.replace(f"{correct_answer}) ", "")
                         break
-        
+
         # Extract question
-        question_match = re.search(r'(?:question|q)[:\s]+([^\n]+(?:\n(?!\s*[A-D][\)\.])[^\n]+)*)', response, re.IGNORECASE)
+        question_match = re.search(
+            r"(?:question|q)[:\s]+([^\n]+(?:\n(?!\s*[A-D][\)\.])[^\n]+)*)",
+            response,
+            re.IGNORECASE,
+        )
         if question_match:
             question_text = question_match.group(1).strip()
         else:
             # Fallback: everything before first choice or answer
-            parts = re.split(r'(?:answer|choices?|a\)|b\)|c\)|d\)):', response, flags=re.IGNORECASE, maxsplit=1)
+            parts = re.split(
+                r"(?:answer|choices?|a\)|b\)|c\)|d\)):",
+                response,
+                flags=re.IGNORECASE,
+                maxsplit=1,
+            )
             question_text = parts[0].replace("Question:", "").replace("Q:", "").strip()
-        
+
         # Extract explanation
-        explanation_match = re.search(r'(?:explanation|explain|why)[:\s]+([^\n]+(?:\n[^\n]+)*)', response, re.IGNORECASE)
+        explanation_match = re.search(
+            r"(?:explanation|explain|why)[:\s]+([^\n]+(?:\n[^\n]+)*)",
+            response,
+            re.IGNORECASE,
+        )
         if explanation_match:
             explanation = explanation_match.group(1).strip()
         else:
             explanation = "See your tutor for explanation."
-        
+
         # Ensure we have 4 choices
         if len(choices) < 4:
-            choices, correct_answer = self._generate_multiple_choice_options(answer_text or "See explanation", response)
+            choices, correct_answer = self._generate_multiple_choice_options(
+                answer_text or "See explanation", response
+            )
             # Extract answer text from the correct choice
             for choice in choices:
                 if choice.startswith(f"{correct_answer})"):
                     answer_text = choice.replace(f"{correct_answer}) ", "")
                     break
-        
+
         return {
             "question_text": question_text or response[:200],
             "choices": choices[:4],
             "correct_answer": correct_answer or "A",
-            "answer_text": answer_text or choices[0].replace("A) ", "") if choices else "See explanation",
-            "explanation": explanation or response
+            "answer_text": answer_text or choices[0].replace("A) ", "")
+            if choices
+            else "See explanation",
+            "explanation": explanation or response,
         }
-    
+
     def _extract_answer(self, response: str) -> str:
         """Extract answer from response"""
-        answer_match = re.search(r'(?:answer|correct|right)[:\s]+([^\n]+)', response, re.IGNORECASE)
+        answer_match = re.search(
+            r"(?:answer|correct|right)[:\s]+([^\n]+)", response, re.IGNORECASE
+        )
         if answer_match:
             return answer_match.group(1).strip()
         return ""
-    
-    def _generate_multiple_choice_options(self, correct_answer: str, context: str = "") -> List[str]:
+
+    def _generate_multiple_choice_options(
+        self, correct_answer: str, context: str = ""
+    ) -> List[str]:
         """Generate 4 multiple choice options with correct answer randomly placed"""
         # Create distractors
         distractors = [
             "A related but incorrect option",
             "Another plausible but wrong answer",
-            "An incorrect alternative"
+            "An incorrect alternative",
         ]
-        
+
         # Combine correct answer with distractors
         all_options = [correct_answer] + distractors
         random.shuffle(all_options)
-        
+
         # Format as A, B, C, D
         letters = ["A", "B", "C", "D"]
-        options = [f"{letter}) {option}" for letter, option in zip(letters, all_options)]
-        
+        options = [
+            f"{letter}) {option}" for letter, option in zip(letters, all_options)
+        ]
+
         # Find which letter has the correct answer
         correct_letter = None
         for i, option in enumerate(all_options):
             if option == correct_answer:
                 correct_letter = letters[i]
                 break
-        
+
         return options, correct_letter or "A"
-    
+
     def _add_multiple_choice_format(self, item: Dict) -> Dict:
         """Add multiple choice format to item if missing"""
         if "choices" not in item or not isinstance(item.get("choices"), list):
@@ -359,4 +417,3 @@ Please provide an improved version in JSON format:
                     item["answer_text"] = choice.replace(f"{correct_letter}) ", "")
                     break
         return item
-
