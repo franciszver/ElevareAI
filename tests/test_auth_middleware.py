@@ -1,8 +1,9 @@
 """
 Tests for src/api/middleware/auth.py (Phase 2, task 2.4).
 
-Covers local JWT validation via src.services.auth.decode_token, the
-mock-token-* demo bypass, and require_role semantics.
+Covers local JWT validation via src.services.auth.decode_token (including
+confirming the sunset mock-token-* demo bypass is rejected), and require_role
+semantics.
 """
 
 import uuid
@@ -101,18 +102,13 @@ class TestGetCurrentUser:
         )
         assert resp.status_code in (401, 403)
 
-    def test_mock_token_bypass_returns_demo_user(self, middleware_client):
-        """Snapshot of the pre-existing mock-token-* demo bypass behavior."""
+    def test_mock_token_is_rejected_with_401(self, middleware_client):
+        """The mock-token-* bypass has been sunset; it must be treated as an
+        ordinary invalid token and rejected with 401."""
         resp = middleware_client.get(
             "/whoami", headers={"Authorization": "Bearer mock-token-anything"}
         )
-        assert resp.status_code == 200
-        assert resp.json() == {
-            "sub": "demo-user",
-            "email": "demo@demo.com",
-            "role": "student",
-            "cognito:groups": ["students"],
-        }
+        assert resp.status_code == 401
 
 
 class TestGetCurrentUserOptional:
@@ -138,18 +134,15 @@ class TestGetCurrentUserOptional:
         assert resp.status_code == 200
         assert resp.json() == {"user": None}
 
-    def test_mock_token_bypass_returns_demo_user(self, middleware_client):
+    def test_mock_token_is_rejected_returns_none(self, middleware_client):
+        """The mock-token-* bypass has been sunset; it must be treated as an
+        ordinary invalid token and return None (not a demo user)."""
         resp = middleware_client.get(
             "/whoami-optional",
             headers={"Authorization": "Bearer mock-token-anything"},
         )
         assert resp.status_code == 200
-        assert resp.json()["user"] == {
-            "sub": "demo-user",
-            "email": "demo@demo.com",
-            "role": "student",
-            "cognito:groups": ["students"],
-        }
+        assert resp.json()["user"] is None
 
 
 class TestVerifyToken:
@@ -237,22 +230,6 @@ class TestRequireRole:
         )
         resp = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
-
-    def test_demo_user_uses_token_role(self, db_session):
-        from src.config.database import get_db
-
-        app = self._build_role_app(["student"])
-
-        def override_get_db():
-            yield db_session
-
-        app.dependency_overrides[get_db] = override_get_db
-
-        client = TestClient(app)
-        resp = client.get(
-            "/protected", headers={"Authorization": "Bearer mock-token-demo"}
-        )
-        assert resp.status_code == 200
 
 
 class TestEndToEndLoginToMe:

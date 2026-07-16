@@ -34,17 +34,6 @@ async def get_current_user(
     """
     token = credentials.credentials
 
-    # Support mock tokens for demo accounts (allow in both dev and production for demo purposes)
-    if token.startswith("mock-token-"):
-        # Return a mock payload that will work with demo accounts
-        # The endpoints will handle looking up by user_id from the URL/request
-        return {
-            "sub": "demo-user",
-            "email": "demo@demo.com",
-            "role": "student",
-            "cognito:groups": ["students"],
-        }
-
     payload = verify_token(token)
 
     # Ensure email is extracted properly - Cognito tokens may have email in different places
@@ -73,16 +62,6 @@ async def get_current_user_optional(
 
     try:
         token = credentials.credentials
-
-        # Support mock tokens for demo accounts (allow in both dev and production for demo purposes)
-        if token.startswith("mock-token-"):
-            return {
-                "sub": "demo-user",
-                "email": "demo@demo.com",
-                "role": "student",
-                "cognito:groups": ["students"],
-            }
-
         payload = verify_token(token)
         return payload
     except HTTPException:
@@ -108,18 +87,14 @@ def require_role(allowed_roles: list[str]):
         user_groups = user.get("cognito:groups", [])
         token_role = user.get("role") or (user_groups[0] if user_groups else None)
 
-        # For demo accounts, use token role
-        if user.get("sub") == "demo-user":
-            user_role = token_role or "student"
+        # Check database role (more reliable)
+        user_sub = user.get("sub")
+        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+        if db_user:
+            user_role = db_user.role
         else:
-            # For real users, check database role (more reliable)
-            user_sub = user.get("sub")
-            db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-            if db_user:
-                user_role = db_user.role
-            else:
-                # Fallback to token role if user not in database yet
-                user_role = token_role
+            # Fallback to token role if user not in database yet
+            user_role = token_role
 
         if not user_role or user_role not in allowed_roles:
             raise HTTPException(

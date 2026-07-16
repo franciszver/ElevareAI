@@ -99,7 +99,7 @@ async def get_current_user_info(
     Get current user's database record
 
     This endpoint ensures the user exists in the database and returns their info.
-    Called by frontend after Cognito login to get the database user_id.
+    Called by frontend after login to get the database user_id.
     """
     # Support mock auth tokens for demo accounts
     if current_user.get("sub") == "demo-user":
