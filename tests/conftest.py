@@ -10,17 +10,24 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.api.main import app
-from src.config.settings import settings
 from src.config.database import get_db
+from src.config.settings import settings
 
 # Import test models (SQLite-compatible with JSON instead of ARRAY)
 from tests.test_models import (
     TestBase,
-    TestUser, TestSubject, TestSession, TestSummary,
-    TestQAInteraction, TestPracticeBankItem, TestGoal, TestStudentRating,
-    TestMessageThread, TestMessage, TestPracticeAssignment
+    TestGoal,
+    TestMessage,
+    TestMessageThread,
+    TestPracticeAssignment,
+    TestPracticeBankItem,
+    TestQAInteraction,
+    TestSession,
+    TestStudentRating,
+    TestSubject,
+    TestSummary,
+    TestUser,
 )
-
 
 # Test database (in-memory SQLite)
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -75,7 +82,7 @@ def sample_user_data():
     return {
         "cognito_sub": "test-user-123",
         "email": "test@example.com",
-        "role": "student"
+        "role": "student",
     }
 
 
@@ -87,7 +94,9 @@ def mock_ai(monkeypatch):
     """
     from src.services.ai.openai_client import openai_client
 
-    def fake_chat_completion(messages, temperature=None, max_tokens=None, response_format=None):
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
         text = " ".join(m.get("content", "") for m in messages)
 
         if "Rate your confidence" in text:
@@ -116,4 +125,3 @@ def mock_ai(monkeypatch):
 
     monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
     return openai_client
-

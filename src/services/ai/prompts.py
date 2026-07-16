@@ -3,28 +3,28 @@ Prompt Templates
 Structured prompts for different AI tasks
 """
 
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 
 class PromptTemplates:
     """Centralized prompt templates for AI tasks"""
-    
+
     @staticmethod
     def session_summary_prompt(
         transcript: str,
         session_duration_minutes: int,
         subject: str,
         topics_covered: List[str],
-        student_name: Optional[str] = None
+        student_name: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """
         Generate prompt for session summary
-        
+
         Returns:
             List of messages for chat completion
         """
         topics_str = ", ".join(topics_covered) if topics_covered else subject
-        
+
         return [
             {
                 "role": "system",
@@ -36,7 +36,7 @@ Your summaries should:
 4. Be concise but informative
 5. If the session was brief or transcript is missing, acknowledge it gracefully
 
-Format your response as a narrative summary followed by clear next steps."""
+Format your response as a narrative summary followed by clear next steps.""",
             },
             {
                 "role": "user",
@@ -49,22 +49,22 @@ Topics covered: {topics_str}
 Transcript:
 {transcript}
 
-Generate a narrative summary and 2-3 actionable next steps."""
-            }
+Generate a narrative summary and 2-3 actionable next steps.""",
+            },
         ]
-    
+
     @staticmethod
     def practice_generation_prompt(
         subject: str,
         topic: str,
         difficulty_level: int,
-        goal_tags: Optional[List[str]] = None
+        goal_tags: Optional[List[str]] = None,
     ) -> List[Dict[str, str]]:
         """
         Generate prompt for AI practice item generation
         """
         goal_context = f" aligned with {', '.join(goal_tags)}" if goal_tags else ""
-        
+
         return [
             {
                 "role": "system",
@@ -84,7 +84,7 @@ Format your response as JSON with:
 - choices: Array of 4 options ["A) option1", "B) option2", "C) option3", "D) option4"]
 - correct_answer: The letter of the correct answer (A, B, C, or D)
 - answer_text: The full text of the correct answer choice
-- explanation: Brief explanation of why the correct answer is right"""
+- explanation: Brief explanation of why the correct answer is right""",
             },
             {
                 "role": "user",
@@ -99,10 +99,10 @@ Provide a JSON response with:
 - choices: Array of exactly 4 answer choices
 - correct_answer: The letter (A, B, C, or D) of the correct answer
 - answer_text: The full text of the correct answer
-- explanation: Brief explanation"""
-            }
+- explanation: Brief explanation""",
+            },
         ]
-    
+
     @staticmethod
     def qa_answer_prompt(
         query: str,
@@ -112,7 +112,7 @@ Provide a JSON response with:
         is_ambiguous: bool = False,
         is_multi_part: bool = False,
         is_out_of_scope: bool = False,
-        query_parts: Optional[List[str]] = None
+        query_parts: Optional[List[str]] = None,
     ) -> List[Dict[str, str]]:
         """
         Generate prompt for Q&A answer with edge case handling
@@ -122,9 +122,13 @@ Provide a JSON response with:
             context_parts.append(f"Recent sessions: {', '.join(recent_sessions)}")
         if current_practice:
             context_parts.append(f"Current practice: {current_practice}")
-        
-        context_str = "\n".join(context_parts) if context_parts else "No specific context available."
-        
+
+        context_str = (
+            "\n".join(context_parts)
+            if context_parts
+            else "No specific context available."
+        )
+
         # Build system message based on query type
         if is_out_of_scope:
             system_message = """You are an AI study companion helping students with educational topics. 
@@ -148,7 +152,7 @@ Your role is to:
 3. If you're unsure or the topic is advanced, acknowledge limitations
 4. Suggest consulting with their tutor for complex topics
 5. Be encouraging and supportive"""
-        
+
         # Build user message
         if is_multi_part and query_parts:
             query_text = "The student asked multiple questions:\n"
@@ -156,12 +160,9 @@ Your role is to:
                 query_text += f"{i}. {part}\n"
         else:
             query_text = f"Student query: {query}"
-        
+
         return [
-            {
-                "role": "system",
-                "content": system_message
-            },
+            {"role": "system", "content": system_message},
             {
                 "role": "user",
                 "content": f"""{query_text}
@@ -170,15 +171,12 @@ Context:
 {context_str}
 
 Provide a helpful answer. If the query is ambiguous, ask for clarification. 
-If you're not confident, acknowledge it and suggest consulting their tutor."""
-            }
+If you're not confident, acknowledge it and suggest consulting their tutor.""",
+            },
         ]
-    
+
     @staticmethod
-    def confidence_assessment_prompt(
-        query: str,
-        answer: str
-    ) -> List[Dict[str, str]]:
+    def confidence_assessment_prompt(query: str, answer: str) -> List[Dict[str, str]]:
         """
         Prompt for LLM self-assessment of confidence
         """
@@ -193,7 +191,7 @@ Rate your confidence on a scale of 0.0 to 1.0 considering:
 - Potential for misunderstanding
 - Need for human verification
 
-Respond with ONLY a number between 0.0 and 1.0 (e.g., 0.85)."""
+Respond with ONLY a number between 0.0 and 1.0 (e.g., 0.85).""",
             },
             {
                 "role": "user",
@@ -201,7 +199,6 @@ Respond with ONLY a number between 0.0 and 1.0 (e.g., 0.85)."""
 
 Answer: {answer}
 
-Rate your confidence in this answer (0.0 to 1.0):"""
-            }
+Rate your confidence in this answer (0.0 to 1.0):""",
+            },
         ]
-

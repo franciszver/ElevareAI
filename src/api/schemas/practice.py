@@ -2,12 +2,14 @@
 Practice API Schemas
 """
 
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 
 
 class AssignPracticeRequest(BaseModel):
     """Request schema for assigning practice"""
+
     student_id: str = Field(..., description="Student UUID")
     subject: str = Field(..., min_length=1, description="Subject name")
     topic: Optional[str] = Field(None, description="Topic name")
@@ -17,6 +19,7 @@ class AssignPracticeRequest(BaseModel):
 
 class PracticeItemResponse(BaseModel):
     """Response schema for practice item"""
+
     item_id: str
     source: str
     question: str
@@ -31,6 +34,7 @@ class PracticeItemResponse(BaseModel):
 
 class AssignPracticeResponse(BaseModel):
     """Response schema for practice assignment"""
+
     assignment_id: str
     items: List[PracticeItemResponse]
     adaptive_metadata: Dict[str, Any]
@@ -38,6 +42,7 @@ class AssignPracticeResponse(BaseModel):
 
 class CompletePracticeRequest(BaseModel):
     """Request schema for completing practice"""
+
     assignment_id: str = Field(..., description="Assignment UUID")
     item_id: str = Field(..., description="Item UUID")
     student_answer: str = Field(..., description="Student's answer")
@@ -48,8 +53,8 @@ class CompletePracticeRequest(BaseModel):
 
 class CompletePracticeResponse(BaseModel):
     """Response schema for practice completion"""
+
     performance_score: float
     student_rating_before: int
     student_rating_after: int
     next_difficulty_suggestion: int
-

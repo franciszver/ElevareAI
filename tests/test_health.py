@@ -2,6 +2,7 @@
 Health Check Tests
 """
 
+
 def test_root_endpoint(client):
     """Test root endpoint"""
     response = client.get("/")
@@ -18,4 +19,3 @@ def test_health_endpoint(client):
     data = response.json()
     assert "status" in data
     assert "database" in data
-

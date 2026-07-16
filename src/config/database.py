@@ -2,14 +2,14 @@
 Database Connection and Session Management
 """
 
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
 from contextlib import contextmanager
 from typing import Generator
 
-from src.config.settings import settings, get_database_url
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import QueuePool
 
+from src.config.settings import get_database_url, settings
 
 # Create engine with connection pooling
 engine = create_engine(
@@ -69,4 +69,3 @@ def check_database_connection() -> bool:
     except Exception as e:
         print(f"Connection error: {e}")
         return False
-

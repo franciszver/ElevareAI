@@ -3,20 +3,21 @@ Integration Handler
 Endpoints for external integrations
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy.orm import Session as DBSession
-from typing import Optional, List, Dict
+import logging
 from datetime import datetime
+from typing import Dict, List, Optional
 
-from src.config.database import get_db
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from sqlalchemy.orm import Session as DBSession
+
 from src.api.middleware.auth import get_current_user, require_role
-from src.services.integrations.lms import LMSService
-from src.services.integrations.calendar import CalendarService
-from src.services.integrations.notifications import NotificationService
-from src.services.integrations.webhooks import WebhookService
+from src.config.database import get_db
 from src.models.integration import Integration, Webhook
 from src.models.user import User
-import logging
+from src.services.integrations.calendar import CalendarService
+from src.services.integrations.lms import LMSService
+from src.services.integrations.notifications import NotificationService
+from src.services.integrations.webhooks import WebhookService
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +31,12 @@ async def sync_canvas_assignments(
     canvas_url: str = Body(..., embed=True),
     course_id: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Sync assignments from Canvas LMS"""
     service = LMSService(db)
     result = service.sync_canvas_assignments(
-        api_token=api_token,
-        canvas_url=canvas_url,
-        course_id=course_id
+        api_token=api_token, canvas_url=canvas_url, course_id=course_id
     )
     return {"success": result.get("success"), "data": result}
 
@@ -49,7 +48,7 @@ async def sync_blackboard_assignments(
     blackboard_url: str = Body(..., embed=True),
     course_id: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Sync assignments from Blackboard LMS"""
     service = LMSService(db)
@@ -57,11 +56,13 @@ async def sync_blackboard_assignments(
         api_key=api_key,
         api_secret=api_secret,
         blackboard_url=blackboard_url,
-        course_id=course_id
+        course_id=course_id,
     )
     if not result.get("success", False):
         # Do not expose internal error details to the client; log is already server side
-        raise HTTPException(status_code=500, detail="An error occurred syncing with Blackboard LMS.")
+        raise HTTPException(
+            status_code=500, detail="An error occurred syncing with Blackboard LMS."
+        )
     return {"success": True, "data": result}
 
 
@@ -74,7 +75,7 @@ async def submit_grade_to_lms(
     grade: float = Body(..., embed=True),
     feedback: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["tutor", "admin"]))
+    current_user: dict = Depends(require_role(["tutor", "admin"])),
 ):
     """Submit grade back to LMS (grade passback)"""
     service = LMSService(db)
@@ -84,7 +85,7 @@ async def submit_grade_to_lms(
         student_id=student_id,
         assignment_id=assignment_id,
         grade=grade,
-        feedback=feedback
+        feedback=feedback,
     )
     return {"success": result.get("success"), "data": result}
 
@@ -97,25 +98,25 @@ async def sync_google_calendar(
     start_date: Optional[str] = Body(None, embed=True),
     end_date: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Sync events from Google Calendar"""
     service = CalendarService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     result = service.sync_google_calendar(
         access_token=access_token,
         calendar_id=calendar_id,
         start_date=start,
-        end_date=end
+        end_date=end,
     )
     if not result.get("success"):
         return {
             "success": False,
             "error": "An internal error occurred while syncing Google calendar.",
-            "data": None
+            "data": None,
         }
     return {"success": True, "data": result}
 
@@ -130,14 +131,14 @@ async def create_google_calendar_event(
     description: Optional[str] = Body(None, embed=True),
     location: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Create event in Google Calendar"""
     service = CalendarService(db)
-    
+
     start = datetime.fromisoformat(start_time)
     end = datetime.fromisoformat(end_time)
-    
+
     result = service.create_google_calendar_event(
         access_token=access_token,
         calendar_id=calendar_id,
@@ -145,13 +146,13 @@ async def create_google_calendar_event(
         start_time=start,
         end_time=end,
         description=description,
-        location=location
+        location=location,
     )
     if not result.get("success"):
         return {
             "success": False,
             "error": "An internal error occurred while creating Google calendar event.",
-            "data": None
+            "data": None,
         }
     return {"success": True, "data": result}
 
@@ -162,25 +163,23 @@ async def sync_outlook_calendar(
     start_date: Optional[str] = Body(None, embed=True),
     end_date: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Sync events from Outlook Calendar"""
     service = CalendarService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     result = service.sync_outlook_calendar(
-        access_token=access_token,
-        start_date=start,
-        end_date=end
+        access_token=access_token, start_date=start, end_date=end
     )
     if not result.get("success"):
         # Log the error already done in service; suppress details to client
         return {
             "success": False,
             "error": "An internal error occurred while syncing Outlook calendar.",
-            "data": None
+            "data": None,
         }
     return {"success": True, "data": result}
 
@@ -194,27 +193,27 @@ async def create_outlook_calendar_event(
     body: Optional[str] = Body(None, embed=True),
     location: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["student", "tutor", "admin"]))
+    current_user: dict = Depends(require_role(["student", "tutor", "admin"])),
 ):
     """Create event in Outlook Calendar"""
     service = CalendarService(db)
-    
+
     start = datetime.fromisoformat(start_time)
     end = datetime.fromisoformat(end_time)
-    
+
     result = service.create_outlook_calendar_event(
         access_token=access_token,
         subject=subject,
         start_time=start,
         end_time=end,
         body=body,
-        location=location
+        location=location,
     )
     if not result.get("success"):
         return {
             "success": False,
             "error": "An internal error occurred while creating Outlook calendar event.",
-            "data": None
+            "data": None,
         }
     # Only expose relevant, non-sensitive event fields
     event = result.get("event", {})
@@ -223,10 +222,13 @@ async def create_outlook_calendar_event(
         "subject": event.get("subject"),
         "start": event.get("start"),
         "end": event.get("end"),
-        "location": event.get("location", {}).get("displayName") if event.get("location") else None,
+        "location": event.get("location", {}).get("displayName")
+        if event.get("location")
+        else None,
         "created_at": result.get("created_at"),
     }
     return {"success": True, "data": sanitized_event}
+
 
 # Notification Endpoints
 @router.post("/notifications/push")
@@ -237,16 +239,12 @@ async def send_push_notification(
     data: Optional[Dict] = Body(None, embed=True),
     platform: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """Send push notification to user"""
     service = NotificationService(db)
     result = service.send_push_notification(
-        user_id=user_id,
-        title=title,
-        body=body,
-        data=data,
-        platform=platform
+        user_id=user_id, title=title, body=body, data=data, platform=platform
     )
     return {"success": result.get("success"), "data": result}
 
@@ -257,21 +255,21 @@ async def register_device_token(
     platform: str = Body(..., embed=True),
     device_info: Optional[Dict] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """Register device token for push notifications"""
     user_sub = current_user.get("sub")
     db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-    
+
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     service = NotificationService(db)
     result = service.register_device_token(
         user_id=str(db_user.id),
         device_token=device_token,
         platform=platform,
-        device_info=device_info
+        device_info=device_info,
     )
     return {"success": result.get("success"), "data": result}
 
@@ -280,19 +278,18 @@ async def register_device_token(
 async def unregister_device_token(
     device_token: str = Body(..., embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """Unregister device token"""
     user_sub = current_user.get("sub")
     db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-    
+
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     service = NotificationService(db)
     result = service.unregister_device_token(
-        user_id=str(db_user.id),
-        device_token=device_token
+        user_id=str(db_user.id), device_token=device_token
     )
     return {"success": result.get("success"), "data": result}
 
@@ -304,18 +301,18 @@ async def create_webhook(
     events: List[str] = Body(..., embed=True),
     secret: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """Create a new webhook"""
     user_sub = current_user.get("sub")
     db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-    
+
     service = WebhookService(db)
     result = service.create_webhook(
         user_id=str(db_user.id) if db_user else None,
         url=url,
         events=events,
-        secret=secret
+        secret=secret,
     )
     return result
 
@@ -323,11 +320,11 @@ async def create_webhook(
 @router.get("/webhooks")
 async def list_webhooks(
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """List all webhooks"""
     webhooks = db.query(Webhook).all()
-    
+
     return {
         "success": True,
         "data": [
@@ -336,13 +333,17 @@ async def list_webhooks(
                 "url": w.url,
                 "events": w.events,
                 "status": w.status,
-                "last_triggered_at": w.last_triggered_at.isoformat() if w.last_triggered_at else None,
+                "last_triggered_at": w.last_triggered_at.isoformat()
+                if w.last_triggered_at
+                else None,
                 "success_count": w.success_count,
                 "error_count": w.error_count,
-                "created_at": w.created_at.isoformat() if hasattr(w.created_at, 'isoformat') else str(w.created_at)
+                "created_at": w.created_at.isoformat()
+                if hasattr(w.created_at, "isoformat")
+                else str(w.created_at),
             }
             for w in webhooks
-        ]
+        ],
     }
 
 
@@ -353,15 +354,12 @@ async def trigger_webhook(
     webhook_id: Optional[str] = Body(None, embed=True),
     user_id: Optional[str] = Body(None, embed=True),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """Trigger webhook for an event"""
     service = WebhookService(db)
     result = service.trigger_webhook(
-        event_type=event_type,
-        payload=payload,
-        webhook_id=webhook_id,
-        user_id=user_id
+        event_type=event_type, payload=payload, webhook_id=webhook_id, user_id=user_id
     )
     return result
 
@@ -372,14 +370,12 @@ async def get_webhook_events(
     status: Optional[str] = Query(None),
     limit: int = Query(100, le=1000),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """Get webhook event history"""
     service = WebhookService(db)
     result = service.get_webhook_events(
-        webhook_id=webhook_id,
-        status=status,
-        limit=limit
+        webhook_id=webhook_id, status=status, limit=limit
     )
     return result
 
@@ -388,7 +384,7 @@ async def get_webhook_events(
 async def retry_webhook_event(
     event_id: str,
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(require_role(["admin"]))
+    current_user: dict = Depends(require_role(["admin"])),
 ):
     """Retry a failed webhook event"""
     service = WebhookService(db)
@@ -397,6 +393,7 @@ async def retry_webhook_event(
         logger.error("Webhook event retry failed: %s", result["error"])
         # Replace error details with a generic message
         result = dict(result)  # copy or ensure we do not mutate underlying service data
-        result["error"] = "An internal error occurred. Please contact support or try again later."
+        result[
+            "error"
+        ] = "An internal error occurred. Please contact support or try again later."
     return result
-

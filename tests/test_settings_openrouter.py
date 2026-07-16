@@ -4,7 +4,7 @@ Verifies Settings exposes openrouter_* fields and OpenAIClient wires them
 into the openai.OpenAI client via base_url.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from src.config.settings import Settings
 
@@ -26,11 +26,13 @@ def test_openai_client_uses_openrouter_settings():
     test_settings = Settings(_env_file=None)
     test_settings.openrouter_api_key = "test-key-123"
 
-    with patch("src.services.ai.openai_client.settings", test_settings), \
-         patch("openai.OpenAI") as mock_openai_cls:
+    with patch("src.services.ai.openai_client.settings", test_settings), patch(
+        "openai.OpenAI"
+    ) as mock_openai_cls:
         mock_openai_cls.return_value = MagicMock()
 
         from src.services.ai.openai_client import OpenAIClient
+
         client = OpenAIClient()
 
         mock_openai_cls.assert_called_once_with(
