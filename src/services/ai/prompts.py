@@ -84,7 +84,9 @@ Format your response as JSON with:
 - choices: Array of 4 options ["A) option1", "B) option2", "C) option3", "D) option4"]
 - correct_answer: The letter of the correct answer (A, B, C, or D)
 - answer_text: The full text of the correct answer choice
-- explanation: Brief explanation of why the correct answer is right""",
+- explanation: Brief explanation of why the correct answer is right
+
+Your response must be a single valid JSON object. Do NOT use LaTeX delimiters like \\( \\) or \\[ \\] and do NOT include unescaped backslashes inside JSON strings. Write math in plain text (e.g. x^2 - 5x + 6 = 0).""",
             },
             {
                 "role": "user",

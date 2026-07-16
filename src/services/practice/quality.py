@@ -141,7 +141,9 @@ Please provide an improved version in JSON format:
         ]
 
         try:
-            ai_response = self.openai.chat_completion(improvement_prompt)
+            ai_response = self.openai.chat_completion(
+                improvement_prompt, response_format={"type": "json_object"}
+            )
 
             # Try to parse JSON response
             json_match = re.search(
@@ -230,7 +232,9 @@ Please provide an improved version in JSON format:
                 prompt[0]["content"] += context_str
 
         try:
-            ai_response = self.openai.chat_completion(prompt)
+            ai_response = self.openai.chat_completion(
+                prompt, response_format={"type": "json_object"}
+            )
 
             # Try JSON parsing first
             json_match = re.search(

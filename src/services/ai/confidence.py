@@ -45,7 +45,7 @@ def calculate_confidence(
         llm_response = openai_client.chat_completion(
             llm_prompt,
             temperature=0.3,  # Lower temperature for more consistent assessment
-            max_tokens=50,
+            max_tokens=400,  # Reasoning models consume budget on hidden reasoning
         )
         # Extract number from response
         import re

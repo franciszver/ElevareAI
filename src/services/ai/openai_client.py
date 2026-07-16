@@ -57,6 +57,7 @@ class OpenAIClient:
         messages: list[Dict[str, str]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        response_format: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
         Generate chat completion with full metadata
@@ -70,6 +71,7 @@ class OpenAIClient:
                 messages=messages,
                 temperature=temperature or self.temperature,
                 max_tokens=max_tokens or self.max_tokens,
+                response_format=response_format,
             )
             return {
                 "content": response.choices[0].message.content,
