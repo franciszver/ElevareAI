@@ -75,3 +75,38 @@ def sample_user_data():
         "role": "student"
     }
 
+
+@pytest.fixture
+def mock_ai(monkeypatch):
+    """Mock the openai_client singleton's chat_completion so AI-dependent
+    code paths (confidence, summarizer, practice generation, Q&A) work
+    fully offline with deterministic canned responses.
+    """
+    from src.services.ai.openai_client import openai_client
+
+    def fake_chat_completion(messages, temperature=None, max_tokens=None, response_format=None):
+        text = " ".join(m.get("content", "") for m in messages)
+
+        if "Rate your confidence" in text:
+            return "0.85"
+
+        if "summaries of tutoring sessions" in text:
+            return (
+                "You made great progress today reviewing key concepts.\n\n"
+                "Next steps:\n1. Review notes\n2. Practice problems"
+            )
+
+        if "multiple-choice practice problems" in text:
+            return (
+                '{"question_text": "What is the sum of 2 and 2 in basic arithmetic?", '
+                '"choices": ["A) 3", "B) 4", "C) 5", "D) 6"], '
+                '"correct_answer": "B", '
+                '"answer_text": "4", '
+                '"explanation": "2 + 2 equals 4 by basic addition rules."}'
+            )
+
+        return "This is a helpful educational answer to your question."
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+    return openai_client
+
