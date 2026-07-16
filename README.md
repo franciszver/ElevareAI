@@ -514,7 +514,7 @@ npm run dev
 
 ### Free-Tier Behavior Notes
 - **Cold Start**: Web services spin down after ~15 min idle; next request takes ~50s (send warm-up request before demos, e.g., `curl https://elevareai-api.onrender.com/health`)
-- **Postgres Expiry**: Free databases delete after ~30 days inactivity — see runbook for recovery procedure
+- **Postgres Expiry**: Free databases delete 30 days after creation, regardless of activity — see runbook for recovery procedure
 - **AI Latency**: Free OpenRouter model takes ~20s per response
 
 ### Legacy Deployment Paths
@@ -522,7 +522,7 @@ AWS deployment guides (ECS/Cognito/SES) are in `_docs/guides/` for reference onl
 
 ### Database Recreation (Render Free PostgreSQL)
 
-Render's free PostgreSQL databases are deleted after ~30 days of inactivity. Restore a demo-ready database in ~5 minutes:
+Render's free PostgreSQL databases are deleted 30 days after creation, regardless of activity. Restore a demo-ready database in ~5 minutes:
 
 1. Create new PostgreSQL database on [Render Dashboard](https://dashboard.render.com) and copy the External Database URL
 2. Parse credentials from URL (`postgresql://user:password@host:port/dbname`) and set environment variables:

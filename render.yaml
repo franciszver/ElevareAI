@@ -49,29 +49,15 @@ services:
     startCommand: "uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     envVars:
-      # Database connection — app composes the URL itself from these parts
-      # (see src/config/settings.py get_database_url). There is no single
-      # DATABASE_URL setting.
-      - key: DB_HOST
+      # Database connection — Render's Blueprint spec only supports
+      # connectionString/connectionPoolString/user/password/database for
+      # fromDatabase (not host/port). The app reads DATABASE_URL verbatim
+      # via src/config/settings.py get_database_url(), normalizing the
+      # postgres:// scheme Render uses to postgresql:// for SQLAlchemy 2.x.
+      - key: DATABASE_URL
         fromDatabase:
           name: elevareai-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: elevareai-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: elevareai-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: elevareai-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: elevareai-db
-          property: password
+          property: connectionString
 
       # OpenRouter (LLM provider) — API key must be entered manually in the
       # Render dashboard after the first deploy; it is never committed here.

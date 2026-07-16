@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.api.middleware.error_handlers import (
@@ -29,11 +30,16 @@ def parse_allowed_origins(value: str) -> list[str]:
 
     "*" (or empty/whitespace-only) means "allow all" and is passed through
     as-is. Otherwise the value is split on commas with whitespace stripped.
+    If "*" appears anywhere in a comma-separated list, it collapses the
+    whole list to allow-all ["*"] rather than mixing "*" with exact origins.
     """
     value = value.strip()
     if not value or value == "*":
         return ["*"]
-    return [origin.strip() for origin in value.split(",") if origin.strip()]
+    origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+    if "*" in origins:
+        return ["*"]
+    return origins
 
 
 @asynccontextmanager
@@ -111,10 +117,11 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     db_status = check_database_connection()
-    return {
+    body = {
         "status": "healthy" if db_status else "unhealthy",
         "database": "connected" if db_status else "disconnected",
     }
+    return JSONResponse(content=body, status_code=200 if db_status else 503)
 
 
 @app.get("/metrics")
