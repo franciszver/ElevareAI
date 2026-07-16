@@ -136,7 +136,9 @@ Please provide an improved version in JSON format:
   "question_text": "...",
   "answer_text": "...",
   "explanation": "..."
-}}""",
+}}
+
+Your response must be a single valid JSON object. Do NOT use LaTeX delimiters like \\( \\) or \\[ \\] and do NOT include unescaped backslashes inside JSON strings. Write math in plain text (e.g. x^2 - 5x + 6 = 0).""",
             },
         ]
 
