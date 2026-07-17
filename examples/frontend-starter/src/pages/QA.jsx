@@ -13,11 +13,27 @@ import './QA.css';
 // The AI is instructed to emit $...$ / $$...$$ math delimiters (what remark-math
 // expects), but LLMs sometimes fall back to \( \) / \[ \] regardless of the prompt.
 // Normalize those to $ delimiters so KaTeX still renders the math.
+//
+// Guard: only convert a delimiter style when its opens/closes are balanced. A
+// truncated response can leave a stray, unmatched \( with no closing \) — the
+// non-greedy regex would then pair it with an unrelated LATER \) elsewhere in
+// the text, wrapping all the intervening prose into a single broken math span
+// (KaTeX renders a red error). If counts don't match, leave that delimiter
+// style as literal text instead of guessing a pairing.
+function countOccurrences(text, substr) {
+  return text.split(substr).length - 1;
+}
+
 function normalizeMathDelimiters(text) {
   if (!text) return text;
-  return text
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expr) => `$$${expr}$$`)
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expr) => `$${expr}$`);
+  let result = text;
+  if (countOccurrences(result, '\\[') === countOccurrences(result, '\\]')) {
+    result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_, expr) => `$$${expr}$$`);
+  }
+  if (countOccurrences(result, '\\(') === countOccurrences(result, '\\)')) {
+    result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_, expr) => `$${expr}$`);
+  }
+  return result;
 }
 
 function QA() {
