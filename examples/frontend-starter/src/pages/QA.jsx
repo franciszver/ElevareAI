@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -166,13 +166,24 @@ function QA() {
       // never flips back to false even after the request succeeds - the button/input
       // stay stuck on "Thinking...". Deferring past that window ensures mutate() attaches
       // to the final, stable observer.
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         queryMutation.mutate({
           student_id: user.id,
           query: preloadedQuery,
           context: {},
         });
       }, 0);
+      // Clear the pending timeout on cleanup so a real unmount (e.g. fast
+      // navigation away before the 0ms timer fires) never lets a stale
+      // mutate() call fire against a torn-down component. Also reset the
+      // "sent" ref: in dev, StrictMode's synchronous mount->cleanup->remount
+      // runs this same cleanup, and without resetting the ref the second
+      // mount would see preloadSentRef.current already true and skip
+      // rescheduling entirely, so the preload would never fire.
+      return () => {
+        clearTimeout(timeoutId);
+        preloadSentRef.current = false;
+      };
     }
   }, [preloadedQuery, user?.id]); // Only depend on preloadedQuery and user.id
 
@@ -204,21 +215,31 @@ function QA() {
   // concurrent history GET may return afterward and include the same pair -
   // filter it out of history so it never renders twice. Live wins since it's
   // the fresh entry the user just triggered.
-  const pairKey = (question, answer) => `${question ?? ''} ${answer ?? ''}`;
+  const pairKey = (question, answer) => `${(question ?? '').length}:${question ?? ''} ${answer ?? ''}`;
 
-  const liveConversationPairs = new Set();
-  for (let i = 0; i < conversation.length - 1; i += 2) {
-    liveConversationPairs.add(pairKey(conversation[i]?.content, conversation[i + 1]?.content));
-  }
-
-  const dedupedHistoryConversation = [];
-  for (let i = 0; i < historyConversation.length - 1; i += 2) {
-    const questionMsg = historyConversation[i];
-    const answerMsg = historyConversation[i + 1];
-    if (!liveConversationPairs.has(pairKey(questionMsg?.content, answerMsg?.content))) {
-      dedupedHistoryConversation.push(questionMsg, answerMsg);
+  const dedupedHistoryConversation = useMemo(() => {
+    const liveConversationPairCounts = new Map();
+    for (let i = 0; i < conversation.length - 1; i += 2) {
+      const key = pairKey(conversation[i]?.content, conversation[i + 1]?.content);
+      liveConversationPairCounts.set(key, (liveConversationPairCounts.get(key) || 0) + 1);
     }
-  }
+
+    const deduped = [];
+    for (let i = 0; i < historyConversation.length - 1; i += 2) {
+      const questionMsg = historyConversation[i];
+      const answerMsg = historyConversation[i + 1];
+      const key = pairKey(questionMsg?.content, answerMsg?.content);
+      const remaining = liveConversationPairCounts.get(key) || 0;
+      if (remaining > 0) {
+        // A live entry already covers this occurrence - suppress just this one
+        // history copy and keep any further repeats of the same question.
+        liveConversationPairCounts.set(key, remaining - 1);
+      } else {
+        deduped.push(questionMsg, answerMsg);
+      }
+    }
+    return deduped;
+  }, [conversation, historyConversation]);
 
   const renderMessage = (msg, key) => (
     <div key={key} className={`qa-message ${msg.type}`}>
