@@ -221,7 +221,7 @@ npm run dev
 
 For production build: `npm run build`
 
-The dev server uses Vite's proxy fallback for the backend out of the box. To point at a specific backend, create `examples/frontend-starter/.env.local`:
+**Required for dev:** the frontend has no dev-server proxy — without configuration its API calls hit the Vite server itself and 404. Create `examples/frontend-starter/.env.local` pointing at the backend:
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
