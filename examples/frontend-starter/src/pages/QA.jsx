@@ -158,12 +158,21 @@ function QA() {
       preloadSentRef.current = true;
       // Set the query in the input field so user can see it
       setQuery(preloadedQuery);
-      // Auto-submit the preloaded query
-      queryMutation.mutate({
-        student_id: user.id,
-        query: preloadedQuery,
-        context: {},
-      });
+      // Defer the actual mutate() call by a tick. React 18 StrictMode (dev only)
+      // double-invokes mount effects synchronously: subscribe -> unsubscribe -> resubscribe.
+      // If mutate() runs inside that synchronous window, the in-flight mutation gets
+      // attached to the observer that's about to be torn down; the resubscribe never
+      // re-attaches it (only mutate() does), so this component's queryMutation.isPending
+      // never flips back to false even after the request succeeds - the button/input
+      // stay stuck on "Thinking...". Deferring past that window ensures mutate() attaches
+      // to the final, stable observer.
+      setTimeout(() => {
+        queryMutation.mutate({
+          student_id: user.id,
+          query: preloadedQuery,
+          context: {},
+        });
+      }, 0);
     }
   }, [preloadedQuery, user?.id]); // Only depend on preloadedQuery and user.id
 
