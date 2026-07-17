@@ -218,3 +218,21 @@
   color: var(--text-secondary);
 }
 
+.qa-history-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.ellipsis-dots::after {
+  content: '';
+  animation: qa-ellipsis 1.2s steps(4, end) infinite;
+}
+
+@keyframes qa-ellipsis {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75%, 100% { content: '...'; }
+}
+

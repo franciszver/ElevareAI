@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     openrouter_base_url: str = Field(
         default="https://openrouter.ai/api/v1", description="OpenRouter base URL"
     )
+    openrouter_timeout: float = Field(
+        default=60.0, description="OpenRouter request timeout in seconds"
+    )
 
     # ========================================================================
     # Application Configuration

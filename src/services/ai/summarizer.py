@@ -9,6 +9,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from starlette.concurrency import run_in_threadpool
+
 from src.models.session import Session as SessionModel
 from src.models.summary import Summary
 from src.models.user import User
@@ -64,7 +66,9 @@ class SessionSummarizer:
             )
 
             try:
-                ai_response = self.openai.chat_completion(prompt)
+                ai_response = await run_in_threadpool(
+                    self.openai.chat_completion, prompt
+                )
 
                 # Parse response (simple approach - can be improved)
                 # Expected format: narrative text, then "Next steps:" followed by steps
