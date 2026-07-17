@@ -20,6 +20,7 @@ class PracticeGenerator:
     def __init__(self):
         self.openai = openai_client
         self.quality_service = PracticeQualityService()
+        self._math_generator = None
 
     def generate_practice_item(
         self,

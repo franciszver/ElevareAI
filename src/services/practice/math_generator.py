@@ -135,8 +135,11 @@ class MathGenerator:
             b = random.randint(-10, 10)
             c = random.randint(-20, 20)
             roots = solve(Eq(a * var**2 + b * var + c, 0), var)
+            roots = [r for r in roots if r.is_real]
             if len(roots) == 0:
-                # No real roots, try again with simpler
+                # No real roots (solve() defaults to the complex domain, so a
+                # negative discriminant still returns complex roots rather
+                # than an empty list), try again with simpler
                 return self.generate_quadratic_equation(difficulty - 2, variable)
             root1 = roots[0]
             root2 = roots[1] if len(roots) > 1 else root1
@@ -162,12 +165,15 @@ class MathGenerator:
         # Get solutions
         equation = Eq(a * var**2 + b * var + c, 0)
         solutions = solve(equation, var)
+        # solve() defaults to the complex domain, so a negative discriminant
+        # still returns complex roots rather than an empty list; filter them
+        # out so we never try to float() a complex number below.
+        solutions = [s for s in solutions if s.is_real]
+        if len(solutions) == 0:
+            return self.generate_quadratic_equation(max(1, difficulty - 2), variable)
 
         # For multiple choice, use one solution
-        if len(solutions) > 0:
-            correct_value = float(solutions[0].evalf())
-        else:
-            correct_value = 0.0
+        correct_value = float(solutions[0].evalf())
 
         # Generate choices
         choices, correct_letter = self._generate_math_choices(
