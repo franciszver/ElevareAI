@@ -6,7 +6,19 @@ import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/apiClient';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import './QA.css';
+
+// The AI is instructed to emit $...$ / $$...$$ math delimiters (what remark-math
+// expects), but LLMs sometimes fall back to \( \) / \[ \] regardless of the prompt.
+// Normalize those to $ delimiters so KaTeX still renders the math.
+function normalizeMathDelimiters(text) {
+  if (!text) return text;
+  return text
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expr) => `$$${expr}$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expr) => `$${expr}$`);
+}
 
 function QA() {
   const { user } = useAuth();
@@ -246,6 +258,8 @@ function QA() {
       <div className="qa-content">
         {msg.type === 'assistant' ? (
           <ReactMarkdown
+            remarkPlugins={[remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={{
               // Style code blocks
               code: ({ inline, className, children, ...props }) => {
@@ -287,7 +301,7 @@ function QA() {
               em: ({ children }) => <em className="qa-emphasis">{children}</em>,
             }}
           >
-            {msg.content}
+            {normalizeMathDelimiters(msg.content)}
           </ReactMarkdown>
         ) : (
           <p className="qa-user-message">{msg.content}</p>

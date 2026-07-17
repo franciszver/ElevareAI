@@ -131,7 +131,7 @@ Provide a JSON response with:
             else "No specific context available."
         )
 
-        conciseness_guidance = """Keep your answer concise — aim for under ~250 words. Use plain text; avoid LaTeX delimiters like \\( \\) or \\[ \\] and heavy formatting. Get to the point."""
+        conciseness_guidance = """Keep your answer concise — aim for under ~250 words. Avoid heavy formatting and get to the point. When writing math, use LaTeX wrapped in $ delimiters for inline math (e.g. $x^2 + 7x + 12$) and $$ for display equations — the UI renders KaTeX, so do NOT write bare LaTeX commands like \\times outside $ delimiters and do NOT use \\( \\) or \\[ \\]."""
 
         # Build system message based on query type
         if is_out_of_scope:
