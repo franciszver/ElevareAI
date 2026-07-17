@@ -22,7 +22,7 @@ import inspect
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from evals.graders.deterministic import GradeResult
 from evals.schema import Case
@@ -69,7 +69,7 @@ class CaseResult:
 
 def aggregate_grades(
     grades: List[GradeResult],
-) -> "tuple[Optional[bool], float, str, bool]":
+) -> Tuple[Optional[bool], float, str, bool]:
     """Aggregate a case's GradeResults into (passed, score, detail, applicable),
     excluding applicable=False results from the pass/score computation. The
     single shared notion of "not applicable" used by both `run_cases` below

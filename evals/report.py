@@ -115,6 +115,10 @@ def render_markdown_with_judge(
     `build_judge_report`'s LLM-judge quality-mean-score, one row per surface,
     clearly labeled as two separate dimensions (a case can pass structure but
     score low on quality, or vice versa — never blended into one number)."""
+
+    def fmt(value: Optional[float], spec: str) -> str:
+        return format(value, spec) if value is not None else "N/A"
+
     lines = [
         "| Surface | Count | Pass Rate (deterministic) | Mean Score (deterministic) | Judge Mean Score (quality) |",
         "|---|---|---|---|---|",
@@ -122,19 +126,9 @@ def render_markdown_with_judge(
     for surface in sorted(set(report) | set(judge_report)):
         stats = report.get(surface, {})
         judge_stats = judge_report.get(surface, {})
-        pass_rate = (
-            f"{stats['pass_rate']:.0%}" if stats.get("pass_rate") is not None else "N/A"
-        )
-        mean_score = (
-            f"{stats['mean_score']:.2f}"
-            if stats.get("mean_score") is not None
-            else "N/A"
-        )
-        judge_mean_score = (
-            f"{judge_stats['judge_mean_score']:.2f}"
-            if judge_stats.get("judge_mean_score") is not None
-            else "N/A"
-        )
+        pass_rate = fmt(stats.get("pass_rate"), ".0%")
+        mean_score = fmt(stats.get("mean_score"), ".2f")
+        judge_mean_score = fmt(judge_stats.get("judge_mean_score"), ".2f")
         lines.append(
             f"| {surface} | {stats.get('count', 0)} | {pass_rate} | {mean_score} | "
             f"{judge_mean_score} |"

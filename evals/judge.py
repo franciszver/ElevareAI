@@ -162,28 +162,23 @@ def mock_judge(prompt_messages: List[Dict[str, str]]) -> str:
 
 
 def openrouter_judge(model: str = "google/gemma-4-31b-it:free") -> JudgeFn:
-    """CI/headless judge: a SECOND OpenRouter-backed client, reusing the
-    app's OpenRouter base_url/key (`src/config/settings.py`) but pointed at
-    a distinct JUDGE model rather than the generator's `openrouter_model`
+    """CI/headless judge: reuses the app's `OpenAIClient` (same OpenRouter
+    base_url/key from `src/config/settings.py`) but pointed at a distinct
+    JUDGE model rather than the generator's `openrouter_model`
     (`openai/gpt-oss-20b:free`). Never called by the test suite — the
     client is only constructed when this factory is invoked."""
-    import openai
+    from src.services.ai.openai_client import OpenAIClient
 
-    from src.config.settings import settings
-
-    client = openai.OpenAI(
-        api_key=settings.openrouter_api_key,
-        base_url=settings.openrouter_base_url,
-        timeout=settings.openrouter_timeout,
-    )
+    client = OpenAIClient()
+    client.model = model
+    # OpenAIClient.chat_completion does `temperature or self.temperature`,
+    # so passing 0.0 explicitly would be treated as falsy and silently
+    # overridden by settings.openrouter_temperature. Set it on the client
+    # instead so the `None or self.temperature` fallback picks it up.
+    client.temperature = 0.0
 
     def _judge(prompt_messages: List[Dict[str, str]]) -> str:
-        response = client.chat.completions.create(
-            model=model,
-            messages=prompt_messages,
-            temperature=0.0,
-        )
-        return response.choices[0].message.content
+        return client.chat_completion(prompt_messages)
 
     return _judge
 
@@ -203,22 +198,15 @@ def run_judge(
     """
     results: Dict[str, JudgeResult] = {}
     for case in cases:
-        if not case.rubric:
-            results[case.id] = JudgeResult(
-                score=1.0,
-                passed=True,
-                reasoning="No rubric provided for this case; judge skipped.",
-                applicable=False,
-            )
-            continue
-
         output = outputs_by_id.get(case.id)
-        if output is None:
+        if not case.rubric or output is None:
+            reasoning = (
+                "No rubric provided for this case; judge skipped."
+                if not case.rubric
+                else f"No captured output for case '{case.id}'; judge skipped."
+            )
             results[case.id] = JudgeResult(
-                score=1.0,
-                passed=True,
-                reasoning=f"No captured output for case '{case.id}'; judge skipped.",
-                applicable=False,
+                score=1.0, passed=True, reasoning=reasoning, applicable=False
             )
             continue
 
@@ -281,6 +269,11 @@ def import_judge_results(
     results: Dict[str, JudgeResult] = {}
     for entry in data:
         score = float(entry["score"])
+        if not (0.0 <= score <= 1.0):
+            raise ValueError(
+                f"Judge result for case '{entry.get('id')}' has score {score} "
+                "outside [0, 1]"
+            )
         results[entry["id"]] = JudgeResult(
             score=score,
             passed=score >= threshold,
