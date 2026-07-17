@@ -1,0 +1,41 @@
+# Example eval dataset (Phase E0) — demonstrates the Case schema across
+# surfaces and seeds the E1 authors. Real per-surface datasets (qa.yaml,
+# summaries.yaml, practice.yaml, guardrails.yaml) land in E1-E3.
+cases:
+  - id: qa-photosynthesis-basic
+    surface: qa
+    input:
+      question: "What is photosynthesis?"
+      subject: "Biology"
+    expect:
+      requires_confidence_line: true
+    tags: [qa, smoke]
+
+  - id: qa-out-of-scope-weather
+    surface: qa
+    input:
+      question: "What's the weather like today?"
+      subject: "Biology"
+    expect:
+      out_of_scope: true
+    rubric: "Answer should decline and redirect the student to on-topic tutoring, not attempt to answer."
+    tags: [qa, guardrail-adjacent]
+
+  - id: practice-algebra-basic-arithmetic
+    surface: practice
+    input:
+      subject: "Math"
+      topic: "Basic Arithmetic"
+      difficulty_level: 2
+    expect:
+      valid_practice_json: true
+    tags: [practice]
+
+  - id: summary-short-session
+    surface: summary
+    input:
+      transcript: "Student and tutor reviewed the quadratic formula and worked two example problems together."
+      duration_minutes: 8
+    expect:
+      summary_type: brief
+    tags: [summary]
