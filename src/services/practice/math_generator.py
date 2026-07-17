@@ -32,6 +32,21 @@ def _real_roots(roots):
     return [r for r in roots if r.is_real]
 
 
+def _canonical_key(expr_str: str) -> str:
+    """Return a canonical dedup key for an expression string, normalized via
+    SymPy so mathematically-identical candidates (e.g. "x**2+7*x+10 + 1" and
+    "x**2+7*x+11", both x**2+7*x+11) collapse to the same key instead of
+    surviving a plain string-equality dedup as "distinct" choices.
+
+    Falls back to the raw string (prefixed so it can never collide with a
+    real canonical key) if SymPy can't parse it, preserving string-only
+    distinctness as a safety net for non-parseable candidates."""
+    try:
+        return str(simplify(parse_expr(expr_str)))
+    except Exception:
+        return f"__RAW__:{expr_str}"
+
+
 class MathGenerator:
     """Generate and validate math practice problems using SymPy"""
 
@@ -405,24 +420,30 @@ class MathGenerator:
         candidates.append(f"{correct_value} - 1")
         candidates.append(f"{correct_value} * 2")
 
-        seen = {correct_value}
+        # Dedup by SYMBOLIC/numeric value (via `_canonical_key`), not string
+        # equality: two candidates can be different strings that simplify to
+        # the same value (e.g. "x**2+7*x+10 + 1" and "x**2+7*x+11"), which
+        # string-equality dedup would let both through as "distinct" choices.
+        seen_keys = {_canonical_key(correct_value)}
         distractors = []
         for candidate in candidates:
-            if candidate in seen:
+            key = _canonical_key(candidate)
+            if key in seen_keys:
                 continue
-            seen.add(candidate)
+            seen_keys.add(key)
             distractors.append(candidate)
             if len(distractors) == 3:
                 break
 
-        # Top up: guarantee exactly 3 distinct distractors even if the
-        # candidates above collapsed via dedup (e.g. correct_value + 1
-        # coincides with another candidate string).
+        # Top up: guarantee exactly 3 symbolically-distinct distractors even
+        # if the candidates above collapsed via dedup (e.g. correct_value + 1
+        # coincides with another candidate's value).
         extra = 2
         while len(distractors) < 3:
             candidate = f"{correct_value} + {extra}"
-            if candidate not in seen:
-                seen.add(candidate)
+            key = _canonical_key(candidate)
+            if key not in seen_keys:
+                seen_keys.add(key)
                 distractors.append(candidate)
             extra += 1
 

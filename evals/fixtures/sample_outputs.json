@@ -157,21 +157,15 @@
       "input": {
         "subject": "History",
         "topic": "Causes of World War I",
-        "difficulty_level": 7,
-        "goal_tags": [
-          "analyze primary causes"
-        ]
+        "difficulty_level": 7
       },
-      "output": "{\n  \"question_text\": \"Which event directly precipitated the immediate outbreak of World War I in 1914?\",\n  \"choices\": [\n    \"A) The assassination of Archduke Franz Ferdinand of Austria-Hungary\",\n    \"B) The signing of the Treaty of Versailles\",\n    \"C) The establishment of the League of Nations\",\n    \"D) The Cuban Missile Crisis\"\n  ],\n  \"correct_answer\": \"A\",\n  \"answer_text\": \"A) The assassination of Archduke Franz Ferdinand of Austria-Hungary\",\n  \"explanation\": \"The assassination on 28 June 1914 triggered a rapid escalation of diplomatic crises, leading Austria-Hungary to issue an ultimatum to Serbia and ultimately resulting in the declaration of war by several major powers.\"\n}",
-      "latency_s": 19.287,
-      "tokens": {
-        "prompt_tokens": 442,
-        "completion_tokens": 821,
-        "total_tokens": 1263
-      },
-      "finish_reason": "stop",
+      "output": "{\n  \"question_text\": \"Which of the following events most directly triggered the rapid mobilization of the major powers that turned the July Crisis into World War I?\",\n  \"choices\": [\n    \"A) The assassination of Archduke Franz Ferdinand in Sarajevo\",\n    \"B) Austria-Hungary's ultimatum to Serbia\",\n    \"C) Germany's issuance of the \\\"blank check\\\" guarantee to Austria-Hungary\",\n    \"D) Russia's mobilization of its army\"\n  ],\n  \"correct_answer\": \"C\",\n  \"answer_text\": \"C) Germany's issuance of the \\\"blank check\\\" guarantee to Austria-Hungary\",\n  \"explanation\": \"Germany’s unconditional support to Austria‑Hungary removed the deterrent that might have restrained the empire, giving it the confidence to act decisively against Serbia. This assurance triggered Austria‑Hungary’s ultimatum and subsequent declaration of war, which activated the alliance system and led to the rapid mobilization of the major powers.\"\n}",
+      "latency_s": 20.87,
+      "tokens": null,
+      "finish_reason": null,
       "model": "openai/gpt-oss-20b:free",
-      "error": null
+      "error": null,
+      "note": "before-case: parallels old 0.65 WWI distractor judge score"
     },
     {
       "id": "summary_normal_algebra",
@@ -242,6 +236,38 @@
       "finish_reason": "stop",
       "model": "openai/gpt-oss-20b:free",
       "error": null
+    },
+    {
+      "id": "practice_cell",
+      "surface": "practice",
+      "input": {
+        "subject": "Biology",
+        "topic": "Cell Structure",
+        "difficulty_level": 5
+      },
+      "output": "{\n  \"question_text\": \"Which organelle is primarily responsible for producing the cell's energy in the form of ATP?\",\n  \"choices\": [\n    \"A) Nucleus\",\n    \"B) Endoplasmic reticulum\",\n    \"C) Golgi apparatus\",\n    \"D) Mitochondrion\"\n  ],\n  \"correct_answer\": \"D\",\n  \"answer_text\": \"D) Mitochondrion\",\n  \"explanation\": \"Mitochondria contain the electron\\u2011transport chain and ATP synthase on their inner membrane, enabling oxidative phosphorylation, which is the main source of cellular ATP.\"\n}",
+      "latency_s": 9.25,
+      "tokens": null,
+      "finish_reason": null,
+      "model": "openai/gpt-oss-20b:free",
+      "error": null,
+      "note": "additional non-math distractor-quality probe"
+    },
+    {
+      "id": "practice_math_expand",
+      "surface": "practice",
+      "input": {
+        "difficulty": 5,
+        "operation": "expand",
+        "seed": 1
+      },
+      "output": "{\n  \"question_text\": \"Expand: (x + 2)*(x + 5)\",\n  \"answer_text\": \"x**2 + 7*x + 10\",\n  \"choices\": [\n    \"A) x**2 + 7*x + 9\",\n    \"B) x**2 + 7*x + 10 * 2\",\n    \"C) x**2 + 7*x + 11\",\n    \"D) x**2 + 7*x + 10\"\n  ],\n  \"correct_answer\": \"D\",\n  \"explanation\": \"Expanding the expression: (x + 2)*(x + 5) = x**2 + 7*x + 10\",\n  \"solution\": \"x**2 + 7*x + 10\",\n  \"difficulty\": 5\n}",
+      "latency_s": 0.02,
+      "tokens": null,
+      "finish_reason": null,
+      "model": "deterministic-sympy",
+      "error": null,
+      "note": "deterministic control: 4 distinct choices expected; not an LLM call"
     }
   ]
 }

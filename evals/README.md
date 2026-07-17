@@ -135,3 +135,22 @@ Not fixed in this pass — noted here rather than addressed, per scope:
   judge-only via `rubric` — there's no deterministic grader underneath them
   the way injection/out-of-scope/calibration have. A judge misjudgment on a
   safety-sensitive case currently has no second check to catch it.
+
+## Practice grader backlog (P1.6 follow-up)
+
+- **`practice_choices_symbolically_distinct` grader.** P1.6 fixed
+  `MathGenerator._generate_expression_choices`
+  (`src/services/practice/math_generator.py`) so its distractor dedup uses
+  SymPy canonical form instead of string equality — previously two
+  candidates like `"x**2+7*x+10 + 1"` and `"x**2+7*x+11"` (both
+  x**2+7*x+11) could both survive as "distinct" strings, shipping an item
+  with only 3 distinct choice VALUES behind 4 distinct strings. The fix is
+  covered by unit tests (`tests/test_practice_math_symbolic_distinct.py`),
+  but there's no eval-level grader that would catch a regression of this
+  shape from the eval-fixture side. A `practice_choices_symbolically_distinct`
+  deterministic grader (parse each choice with `sympy.parse_expr`, simplify,
+  and flag <4 distinct canonical forms, falling back to string-distinctness
+  for non-parseable choices) would close that gap. Not added in P1.6 to
+  avoid touching `evals/graders/registry.py`/`graders_by_surface` outside
+  that task's scope — land it alongside the next change that's already
+  touching the practice grader registry.
