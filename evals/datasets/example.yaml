@@ -1,14 +1,40 @@
-# Example eval dataset (Phase E0) — demonstrates the Case schema across
-# surfaces and seeds the E1 authors. Real per-surface datasets (qa.yaml,
-# summaries.yaml, practice.yaml, guardrails.yaml) land in E1-E3.
+# Example eval dataset (Phase E0/E1) — demonstrates the Case schema across
+# surfaces with real, deterministic cases graded by evals/graders/deterministic.py
+# via evals/graders/registry.py's `graders_by_surface`.
+#
+# Each case's `expect.example_output` is a literal AI-surface output (a QA
+# answer string, a practice-item JSON string, or a summary JSON string) that
+# a NO-API demo run can feed straight into `run_cases` as its `generate_fn`
+# (see the scratchpad demo script referenced in the E1 handoff). Real live
+# eval cases keep the same `input`/`expect` shape; only the generator swaps.
+#
+# `expect` field convention (consumed by evals/graders/registry.py):
+#   qa:       out_of_scope (bool)
+#   practice: math_topic + seed (+ operation, expression_simplification only)
+#             — triggers practice_math_answer_correct's SymPy regeneration
+#   summary:  (duration comes from input.duration_minutes)
 cases:
+  # ---------------------------------------------------------------------
+  # QA
+  # ---------------------------------------------------------------------
   - id: qa-photosynthesis-basic
     surface: qa
     input:
       question: "What is photosynthesis?"
       subject: "Biology"
     expect:
-      requires_confidence_line: true
+      out_of_scope: false
+      example_output: >-
+        Photosynthesis is the process by which plants, algae, and some
+        bacteria convert light energy into chemical energy stored in
+        glucose. Using chlorophyll in their chloroplasts, plants absorb
+        sunlight, water ($H_2O$) from the soil, and carbon dioxide ($CO_2$)
+        from the air, producing glucose and oxygen as a byproduct. The
+        overall reaction is $6CO_2 + 6H_2O + \text{light} \rightarrow
+        C_6H_{12}O_6 + 6O_2$. This process occurs mainly in the leaves and
+        is essential for life on Earth since it produces the oxygen we
+        breathe and forms the base of most food chains.
+        CONFIDENCE: 0.92
     tags: [qa, smoke]
 
   - id: qa-out-of-scope-weather
@@ -18,9 +44,88 @@ cases:
       subject: "Biology"
     expect:
       out_of_scope: true
+      example_output: >-
+        I'm designed to help with educational topics like math, science,
+        literature, and test prep. I can't assist with non-academic
+        questions like weather, sports, or general information. Is there
+        an academic topic I can help you with instead?
     rubric: "Answer should decline and redirect the student to on-topic tutoring, not attempt to answer."
     tags: [qa, guardrail-adjacent]
 
+  - id: qa-factoring-quadratics
+    surface: qa
+    input:
+      question: "I don't understand factoring quadratics"
+      subject: "Algebra"
+    expect:
+      out_of_scope: false
+      example_output: >-
+        Factoring a quadratic means rewriting an expression like $x^2 + bx
+        + c$ as a product of two binomials, such as $(x + p)(x + q)$, where
+        $p \times q = c$ and $p + q = b$. For example, to factor $x^2 + 5x
+        + 6$, find two numbers that multiply to 6 and add to 5: 2 and 3. So
+        it factors to $(x + 2)(x + 3)$. Once factored, you can find the
+        roots by setting each factor equal to zero. Practice with a few
+        examples and it becomes a pattern-matching skill.
+        CONFIDENCE: 0.65
+    tags: [qa]
+
+  - id: qa-schrodinger-equation
+    surface: qa
+    input:
+      question: "Can you explain the Schrodinger equation in detail?"
+      subject: "Physics"
+    expect:
+      out_of_scope: false
+      example_output: >-
+        The Schrodinger equation describes how the quantum state of a
+        physical system changes over time. The time-dependent form is
+        $i\hbar \frac{\partial}{\partial t}\Psi = \hat{H}\Psi$, where
+        $\Psi$ is the wavefunction, $\hat{H}$ is the Hamiltonian operator,
+        and $\hbar$ is the reduced Planck constant. Solving it for a given
+        system yields the allowed energy levels and the probability
+        distribution of finding a particle in space. This is genuinely
+        advanced material that usually requires a background in linear
+        algebra and differential equations to fully grasp.
+        CONFIDENCE: 0.35
+    tags: [qa]
+
+  - id: qa-water-formula
+    surface: qa
+    input:
+      question: "What is the chemical formula of water?"
+      subject: "Chemistry"
+    expect:
+      out_of_scope: false
+      example_output: >-
+        Water has the chemical formula $H_2O$, meaning each molecule is
+        made of two hydrogen atoms covalently bonded to one oxygen atom.
+        The oxygen atom is more electronegative, pulling shared electrons
+        closer, which gives water molecules a bent shape and makes them
+        polar. This polarity is why water is such an effective solvent and
+        why it forms hydrogen bonds with neighboring molecules.
+        CONFIDENCE: 0.95
+    tags: [qa]
+
+  - id: qa-derivative-calculus
+    surface: qa
+    input:
+      question: "Find the derivative of f(x) = 3x^2 + 5x - 2"
+      subject: "Calculus"
+    expect:
+      out_of_scope: false
+      example_output: >-
+        To find the derivative of $f(x) = 3x^2 + 5x - 2$, apply the power
+        rule to each term: the derivative of $3x^2$ is $6x$, the derivative
+        of $5x$ is $5$, and the derivative of the constant $-2$ is $0$.
+        Adding these together gives $f'(x) = 6x + 5$. The power rule
+        states that for any term $ax^n$, the derivative is $anx^{n-1}$.
+        CONFIDENCE: 0.9
+    tags: [qa]
+
+  # ---------------------------------------------------------------------
+  # Practice
+  # ---------------------------------------------------------------------
   - id: practice-algebra-basic-arithmetic
     surface: practice
     input:
@@ -29,8 +134,110 @@ cases:
       difficulty_level: 2
     expect:
       valid_practice_json: true
+      example_output: >-
+        {"question_text": "What is the sum of 2 and 2 in basic arithmetic?",
+        "choices": ["A) 3", "B) 4", "C) 5", "D) 6"], "correct_answer": "B",
+        "answer_text": "4", "explanation": "Adding 2 and 2 together using
+        basic addition gives a total of 4."}
     tags: [practice]
 
+  - id: practice-biology-cell-structure
+    surface: practice
+    input:
+      subject: "Biology"
+      topic: "Cell Structure"
+      difficulty_level: 3
+    expect:
+      valid_practice_json: true
+      example_output: >-
+        {"question_text": "Which organelle is responsible for producing
+        most of a cell's ATP through cellular respiration?",
+        "choices": ["A) Nucleus", "B) Golgi apparatus", "C) Mitochondria",
+        "D) Ribosome"], "correct_answer": "C", "answer_text": "Mitochondria",
+        "explanation": "Mitochondria contain the enzymes needed for the
+        electron transport chain, which produces the bulk of a cell's ATP
+        during aerobic respiration."}
+    tags: [practice]
+
+  - id: practice-math-linear-equation
+    surface: practice
+    input:
+      subject: "Math"
+      topic: "Linear Equations"
+      difficulty_level: 3
+    expect:
+      valid_practice_json: true
+      math_topic: linear_equation
+      seed: 101
+      example_output: >-
+        {"question_text": "Solve for x: 5x + 4 = 18", "answer_text": "x =
+        2.8", "choices": ["A) 1.4", "B) 5.6", "C) 4.8", "D) 2.8"],
+        "correct_answer": "D", "explanation": "Step 1: Subtract 4 from
+        both sides\n  5x = 14\nStep 2: Divide both sides by 5\n  x = 14/5 =
+        2.8", "solution": "14/5", "difficulty": 3}
+    tags: [practice, math]
+
+  - id: practice-math-quadratic-equation
+    surface: practice
+    input:
+      subject: "Math"
+      topic: "Quadratic Equations"
+      difficulty_level: 3
+    expect:
+      valid_practice_json: true
+      math_topic: quadratic_equation
+      seed: 202
+      example_output: >-
+        {"question_text": "Solve for x: x² - 6x + 5 = 0",
+        "answer_text": "x = 1.0", "choices": ["A) 2", "B) 4", "C) 1", "D)
+        0.5"], "correct_answer": "C", "explanation": "Using the quadratic
+        formula or factoring, we get x = 1 or x = 5", "solution": "1",
+        "difficulty": 3}
+    tags: [practice, math]
+
+  - id: practice-math-expression-expand
+    surface: practice
+    input:
+      subject: "Math"
+      topic: "Expanding Expressions"
+      difficulty_level: 6
+    expect:
+      valid_practice_json: true
+      math_topic: expression_simplification
+      seed: 1
+      operation: expand
+      example_output: >-
+        {"question_text": "Expand: (x + 2)*(x + 5)", "answer_text":
+        "x**2 + 7*x + 10", "choices": ["A) x**2 + 7*x + 10 * 2", "B) x**2 +
+        7*x + 11", "C) x**2 + 7*x + 10 + 1", "D) x**2 + 7*x + 10"],
+        "correct_answer": "D", "explanation": "Expanding the expression:
+        (x + 2)*(x + 5) = x**2 + 7*x + 10", "solution": "x**2 + 7*x + 10",
+        "difficulty": 6}
+    tags: [practice, math]
+
+  - id: practice-history-causes-wwi
+    surface: practice
+    input:
+      subject: "History"
+      topic: "World War I"
+      difficulty_level: 4
+    expect:
+      valid_practice_json: true
+      example_output: >-
+        {"question_text": "Which event is most often cited as the
+        immediate trigger for the start of World War I?",
+        "choices": ["A) The sinking of the Lusitania", "B) The assassination
+        of Archduke Franz Ferdinand", "C) The invasion of Belgium", "D) The
+        signing of the Treaty of Versailles"], "correct_answer": "B",
+        "answer_text": "The assassination of Archduke Franz Ferdinand",
+        "explanation": "The assassination of Archduke Franz Ferdinand in
+        Sarajevo in June 1914 set off the chain of alliance obligations
+        that escalated into full-scale war within weeks."}
+    tags: [practice]
+
+  # ---------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------
   - id: summary-short-session
     surface: summary
     input:
@@ -38,4 +245,58 @@ cases:
       duration_minutes: 8
     expect:
       summary_type: brief
+      example_output: >-
+        {"narrative": "Brief 8-minute session: you and your tutor reviewed
+        the quadratic formula and worked through two example problems
+        together, focusing on identifying a, b, and c before applying the
+        formula.", "next_steps": ["Practice identifying coefficients in 3
+        more quadratic equations", "Try factoring before defaulting to the
+        quadratic formula"], "summary_type": "brief"}
+    tags: [summary]
+
+  - id: summary-normal-session-biology
+    surface: summary
+    input:
+      transcript: "Student and tutor covered the stages of mitosis in detail, using diagrams to walk through prophase, metaphase, anaphase, and telophase, then compared mitosis to meiosis."
+      duration_minutes: 45
+    expect:
+      summary_type: normal
+      example_output: >-
+        {"narrative": "You and your tutor covered the stages of mitosis in
+        detail, walking through prophase, metaphase, anaphase, and
+        telophase using diagrams. You also discussed how mitosis differs
+        from meiosis in terms of genetic outcome.", "next_steps": ["Draw
+        and label all four mitosis stages from memory", "Compare mitosis
+        and meiosis outcomes in a short written summary", "Review the
+        practice quiz on cell division"], "summary_type": "normal"}
+    tags: [summary]
+
+  - id: summary-boundary-ten-minutes
+    surface: summary
+    input:
+      transcript: "Student and tutor reviewed balancing chemical equations for combustion reactions."
+      duration_minutes: 10
+    expect:
+      summary_type: normal
+      example_output: >-
+        {"narrative": "You and your tutor reviewed how to balance chemical
+        equations for combustion reactions, working through two examples
+        involving hydrocarbons.", "next_steps": ["Balance three more
+        combustion equations for homework"], "summary_type": "normal"}
+    tags: [summary, boundary]
+
+  - id: summary-normal-session-history
+    surface: summary
+    input:
+      transcript: "Student and tutor discussed the causes of World War I, focusing on alliance systems and nationalism, then outlined an essay structure."
+      duration_minutes: 30
+    expect:
+      summary_type: normal
+      example_output: >-
+        {"narrative": "You and your tutor discussed the causes of World War
+        I, focusing on the alliance system and rising nationalism across
+        Europe, and outlined a five-paragraph essay structure for your
+        upcoming assignment.", "next_steps": ["Draft the introduction
+        paragraph using the outline", "Find two primary sources supporting
+        the nationalism argument"], "summary_type": "normal"}
     tags: [summary]

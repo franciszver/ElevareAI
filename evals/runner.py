@@ -9,17 +9,45 @@ calls the actual prompt-building + `openai_client.chat_completion` code
 paths, and route cases needing multiple prompt inputs (e.g. summary
 transcripts) accordingly. `live_generate_stub` below is the placeholder
 that live callers must replace.
+
+Grader calling convention: a grader may accept either `(output)` (E0-style,
+still supported) or `(output, case)` - the second form lets a grader read
+extra per-case grading hints from `case.expect`/`case.input` (e.g. QA's
+out-of-scope flag, practice math's seed/topic, summary's duration). See
+`evals/graders/registry.py` for the adapters that implement this for the
+E1 graders.
 """
 
+import inspect
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from functools import lru_cache
+from typing import Callable, Dict, List, Optional, Union
 
 from evals.graders.deterministic import GradeResult
 from evals.schema import Case
 
 GenerateFn = Callable[[Case], str]
-GraderFn = Callable[[str], GradeResult]
+GraderFn = Union[Callable[[str], GradeResult], Callable[[str, Case], GradeResult]]
+
+
+@lru_cache(maxsize=None)
+def _grader_arity(grader: GraderFn) -> int:
+    """A grader function's parameter count never changes between calls, so
+    this is cached rather than re-derived via `inspect.signature` for every
+    (case, grader) pair `_call_grader` is invoked on."""
+    try:
+        return len(inspect.signature(grader).parameters)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _call_grader(grader: GraderFn, output: str, case: Case) -> GradeResult:
+    """Call `grader` with `(output, case)` if it accepts 2+ params, else the
+    original E0 `(output)` form, so old single-arg graders keep working."""
+    if _grader_arity(grader) >= 2:
+        return grader(output, case)
+    return grader(output)
 
 
 @dataclass
@@ -67,7 +95,7 @@ def run_cases(
 
         graders = graders_by_surface.get(case.surface, [])
         if graders:
-            grades = [grader(output) for grader in graders]
+            grades = [_call_grader(grader, output, case) for grader in graders]
             passed = all(g.passed for g in grades)
             score = sum(g.score for g in grades) / len(grades)
             detail = "; ".join(g.detail for g in grades)
