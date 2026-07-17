@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     db_password: str = Field(default="", description="Database password")
     db_pool_size: int = Field(default=5, description="Connection pool size")
     db_max_overflow: int = Field(default=10, description="Max overflow connections")
+    database_url: str = Field(
+        default="",
+        description="Full database URL; overrides DB_* parts when set (e.g. Render)",
+    )
 
     # ========================================================================
     # OpenRouter Configuration
@@ -120,6 +124,18 @@ class Settings(BaseSettings):
     rails_app_url: Optional[str] = Field(default=None, description="Rails app URL")
     webhook_secret: Optional[str] = Field(default=None, description="Webhook secret")
 
+    # ========================================================================
+    # CORS Configuration
+    # ========================================================================
+    allowed_origins: str = Field(
+        default="*",
+        description=(
+            '"*" or empty allows all origins (dev); otherwise a '
+            'comma-separated list of exact origins. If "*" appears anywhere '
+            "in the list, it collapses to allow-all."
+        ),
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -131,7 +147,17 @@ settings = Settings()
 
 
 def get_database_url() -> str:
-    """Get database connection URL"""
+    """Get database connection URL.
+
+    Uses settings.database_url verbatim when set (e.g. Render's DATABASE_URL),
+    normalizing the postgres:// scheme to postgresql:// for SQLAlchemy 2.x.
+    Otherwise composes the URL from the individual DB_* parts.
+    """
+    if settings.database_url:
+        url = settings.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        return url
     return (
         f"postgresql://{settings.db_user}:{settings.db_password}"
         f"@{settings.db_host}:{settings.db_port}/{settings.db_name}"
