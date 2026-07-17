@@ -330,3 +330,104 @@ def test_deliver_webhook_blocks_registered_webhook_with_private_target(
     assert result["successful"] == 0
     assert result["failed"] == 1
     assert result["results"][0].get("blocked") is True
+
+
+# --- SSRF redirect bypass (P2 FIX 1) ----------------------------------------
+
+
+def test_trigger_webhook_direct_url_sets_allow_redirects_false(db_session: Session):
+    """requests.post for the direct webhook_url path must be called with
+    allow_redirects=False so a 3xx response from an otherwise-safe target
+    cannot redirect the connection to an internal/metadata host."""
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(status_code=200)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="https://example.com/webhook",
+        )
+
+    assert mock_post.call_args.kwargs.get("allow_redirects") is False
+
+
+def test_trigger_webhook_direct_url_treats_redirect_as_failed(db_session: Session):
+    """A 302 response (even with a Location pointing at an internal host)
+    must be treated as a failed/blocked delivery, not success - and the
+    redirect target must never be fetched."""
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(
+        status_code=302, headers={"Location": "http://169.254.169.254/latest/meta-data"}
+    )
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="https://example.com/webhook",
+        )
+
+    # requests.post is only ever called once - the redirect target is never
+    # independently fetched.
+    mock_post.assert_called_once()
+    assert result["success"] is False
+    assert "redirect" in result.get("error", "").lower()
+
+
+def test_deliver_webhook_registered_sets_allow_redirects_false_and_blocks_redirect(
+    db_session: Session,
+):
+    """Same guarantee as above, for the registered-webhook delivery path
+    (_deliver_webhook, invoked via trigger_webhook without webhook_url)."""
+    from tests.test_models import TestWebhook
+
+    user = TestUser(
+        id=str(uuid.uuid4()),
+        cognito_sub="user-sub-redirect",
+        email="redirect@test.com",
+        role="admin",
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    webhook = TestWebhook(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        url="https://example.com/webhook",
+        events=["practice.completed"],
+        status="active",
+    )
+    db_session.add(webhook)
+    db_session.commit()
+
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(
+        status_code=302,
+        headers={"Location": "http://169.254.169.254/latest/meta-data"},
+        text="",
+    )
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"practice_id": "123"},
+        )
+
+    assert mock_post.call_args.kwargs.get("allow_redirects") is False
+    mock_post.assert_called_once()
+    assert result["successful"] == 0
+    assert result["failed"] == 1
+    assert result["results"][0]["success"] is False

@@ -211,8 +211,24 @@ class WebhookService:
 
             try:
                 response = requests.post(
-                    webhook_url, json=webhook_payload, headers=headers, timeout=10
+                    webhook_url,
+                    json=webhook_payload,
+                    headers=headers,
+                    timeout=10,
+                    allow_redirects=False,
                 )
+                if 300 <= response.status_code < 400:
+                    logger.warning(
+                        "Refused redirect (3xx) from webhook target host=%s status=%s",
+                        urlparse(webhook_url).hostname,
+                        response.status_code,
+                    )
+                    return {
+                        "success": False,
+                        "http_status": response.status_code,
+                        "url": webhook_url,
+                        "error": f"redirect refused (3xx) to {response.status_code}",
+                    }
                 return {
                     "success": response.status_code < 400,
                     "http_status": response.status_code,
@@ -335,33 +351,61 @@ class WebhookService:
 
         try:
             response = requests.post(
-                webhook.url, json=webhook_payload, headers=headers, timeout=10
+                webhook.url,
+                json=webhook_payload,
+                headers=headers,
+                timeout=10,
+                allow_redirects=False,
             )
 
+            is_redirect = 300 <= response.status_code < 400
+            if is_redirect:
+                logger.warning(
+                    "Refused redirect (3xx) from webhook target host=%s webhook_id=%s status=%s",
+                    urlparse(webhook.url).hostname,
+                    webhook.id,
+                    response.status_code,
+                )
+
             # Update event status
-            event.status = "sent" if response.status_code < 400 else "failed"
+            event.status = (
+                "failed"
+                if is_redirect
+                else ("sent" if response.status_code < 400 else "failed")
+            )
             event.http_status = response.status_code
-            event.response_body = response.text[:1000]  # Limit response size
+            event.response_body = (
+                f"redirect refused (3xx) to {response.status_code}"
+                if is_redirect
+                else response.text[:1000]  # Limit response size
+            )
             event.sent_at = datetime.utcnow()
             event.attempts = 1
 
             # Update webhook stats
             webhook.last_triggered_at = datetime.utcnow()
-            if response.status_code < 400:
+            if not is_redirect and response.status_code < 400:
                 webhook.success_count += 1
             else:
                 webhook.error_count += 1
                 webhook.last_error = (
-                    f"HTTP {response.status_code}: {response.text[:200]}"
+                    f"redirect refused (3xx) to {response.status_code}"
+                    if is_redirect
+                    else f"HTTP {response.status_code}: {response.text[:200]}"
                 )
 
             self.db.commit()
 
             return {
-                "success": response.status_code < 400,
+                "success": (not is_redirect) and response.status_code < 400,
                 "webhook_id": str(webhook.id),
                 "http_status": response.status_code,
                 "event_id": str(event.id),
+                **(
+                    {"error": f"redirect refused (3xx) to {response.status_code}"}
+                    if is_redirect
+                    else {}
+                ),
             }
 
         except Exception as e:

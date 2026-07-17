@@ -319,6 +319,27 @@ class TestSummaryHasNextSteps:
         )
         assert result.passed is True
 
+    def test_raw_text_with_two_markers_prefers_next_steps_section(self):
+        # Regression test: a mid-narrative "Next:" occurring before a later
+        # "Next steps:" section must not be treated as the split point - the
+        # grader must split at "next steps:" (mirrors summarizer.py).
+        narrative, next_steps = det._parse_summary_text(
+            "We reviewed X. Next: I'll grab coffee.\n\n"
+            "Next steps:\n"
+            "1. Practice factoring\n"
+            "2. Review notes"
+        )
+        assert narrative == "We reviewed X. Next: I'll grab coffee."
+        assert next_steps == ["Practice factoring", "Review notes"]
+
+        result = det.summary_has_next_steps(
+            "We reviewed X. Next: I'll grab coffee.\n\n"
+            "Next steps:\n"
+            "1. Practice factoring\n"
+            "2. Review notes"
+        )
+        assert result.passed is True
+
 
 class TestSummaryTypeMatchesDuration:
     def test_brief_for_short_duration_passes(self):
