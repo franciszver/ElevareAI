@@ -100,7 +100,8 @@ services:
   - type: web
     runtime: static
     name: elevareai-frontend
-    plan: free
+    # (no `plan` — static sites don't accept one; they are free by nature.
+    # Render's validator rejects plan:free on runtime:static.)
     buildCommand: "cd examples/frontend-starter && npm ci && npm run build"
     staticPublishPath: examples/frontend-starter/dist
     routes:
