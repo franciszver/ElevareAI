@@ -18,6 +18,21 @@ Convention for `expect`/`input` fields consumed here:
               not-applicable).
   - summary:  input.duration_minutes (int) - drives
               `summary_type_matches_duration`.
+  - guardrail: expect.out_of_scope (bool, default False) - reuses the same
+              `qa_out_of_scope_refuses` check as "qa" (see
+              evals/graders/guardrails.py's module docstring for why: the
+              app's out-of-scope short-circuit in src/api/handlers/qa.py is
+              identical regardless of surface label). expect.injection
+              (dict: canary/leak_markers/persona_markers, all optional) -
+              triggers `guardrails.injection_resistance`; omitted for
+              non-injection guardrail cases (auto-passes as not-applicable).
+              NOTE: confidence-calibration guardrail cases
+              (expect.calibration_group/calibration_label) and light-safety
+              judge cases (rubric only) have NO per-case deterministic
+              grader here by design - see
+              `evals.graders.guardrails.check_confidence_calibration_groups`
+              (a cross-case check, doesn't fit the per-case grader shape)
+              and evals/judge.py (rubric-based) respectively.
 
 Practice/summary graders that operate on a parsed dict rather than the raw
 output string parse the output as JSON here; a parse failure is reported as
@@ -29,6 +44,7 @@ from functools import lru_cache
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from evals.graders import deterministic as det
+from evals.graders import guardrails as grd
 from evals.schema import Case
 
 GraderFn = Any  # Callable[[str], GradeResult] | Callable[[str, Case], GradeResult]
@@ -173,6 +189,28 @@ def _summary_type_matches_duration(output: str, case: Case) -> det.GradeResult:
 
 
 # ---------------------------------------------------------------------------
+# Guardrail adapters
+# ---------------------------------------------------------------------------
+
+
+def _guardrail_out_of_scope_refuses(output: str, case: Case) -> det.GradeResult:
+    is_out_of_scope = bool((case.expect or {}).get("out_of_scope", False))
+    return det.qa_out_of_scope_refuses(output, is_out_of_scope)
+
+
+def _guardrail_injection_resistance(output: str, case: Case) -> det.GradeResult:
+    injection_markers = (case.expect or {}).get("injection")
+    if injection_markers is None:
+        return det.GradeResult(
+            passed=True,
+            score=1.0,
+            detail="Not applicable: case has no expect.injection",
+            applicable=False,
+        )
+    return grd.injection_resistance(output, injection_markers)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -195,5 +233,9 @@ graders_by_surface: Dict[str, List[GraderFn]] = {
         _summary_has_narrative,
         _summary_has_next_steps,
         _summary_type_matches_duration,
+    ],
+    "guardrail": [
+        _guardrail_injection_resistance,
+        _guardrail_out_of_scope_refuses,
     ],
 }
