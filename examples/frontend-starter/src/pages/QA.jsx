@@ -14,6 +14,7 @@ function QA() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [conversation, setConversation] = useState([]);
+  const [historyConversation, setHistoryConversation] = useState([]);
   const preloadSentRef = useRef(false); // Use ref to track if preload was sent (persists across re-renders)
   const historyLoadedRef = useRef(false); // Track if history has been loaded
   const conversationEndRef = useRef(null); // Ref for scrolling to bottom
@@ -37,13 +38,14 @@ function QA() {
     }
   });
   
-  // Load conversation history into state when it's fetched
+  // Load conversation history into a separate history state when it's fetched
+  // (kept apart from `conversation` so history arriving can never look like a live answer arriving)
   useEffect(() => {
-    if (historyData?.data?.interactions && !historyLoadedRef.current && conversation.length === 0) {
+    if (historyData?.data?.interactions && !historyLoadedRef.current) {
       console.log('[QA] Loading conversation history into state');
       const interactions = historyData.data.interactions;
       const loadedConversation = [];
-      
+
       // Convert API format to conversation format
       for (const interaction of interactions) {
         loadedConversation.push({
@@ -56,14 +58,14 @@ function QA() {
           confidence: interaction.confidence || 'Medium'
         });
       }
-      
+
       if (loadedConversation.length > 0) {
-        setConversation(loadedConversation);
+        setHistoryConversation(loadedConversation);
         historyLoadedRef.current = true;
         console.log('[QA] Loaded', loadedConversation.length / 2, 'previous interactions');
       }
     }
-  }, [historyData, conversation.length]);
+  }, [historyData]);
 
   // Scroll to bottom when conversation updates or component mounts
   useEffect(() => {
@@ -73,7 +75,7 @@ function QA() {
         conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 100);
     }
-  }, [conversation, historyData]);
+  }, [conversation, historyConversation]);
   
   // Check for preloaded query from Practice page
   const preloadedQuery = searchParams.get('preload');
@@ -148,21 +150,6 @@ function QA() {
     },
   });
 
-  // Safety mechanism: If conversation has messages but mutation is still pending, reset it
-  useEffect(() => {
-    if (conversation.length > 0 && queryMutation.isPending) {
-      console.warn('[QA] Detected stuck mutation - conversation has messages but isPending is true. Resetting...');
-      // Wait a bit to see if it resolves, then force reset
-      const timeout = setTimeout(() => {
-        if (queryMutation.isPending) {
-          console.warn('[QA] Force resetting stuck mutation');
-          queryMutation.reset();
-        }
-      }, 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [conversation.length, queryMutation.isPending, queryMutation]);
-
   // Auto-send preloaded query when component mounts (only once)
   useEffect(() => {
     // Only run if we have a preloaded query, haven't sent it yet, user is available, and no conversation exists
@@ -202,6 +189,68 @@ function QA() {
       navigate('/practice');
     }
   };
+
+  const renderMessage = (msg, key) => (
+    <div key={key} className={`qa-message ${msg.type}`}>
+      <div className="qa-content">
+        {msg.type === 'assistant' ? (
+          <ReactMarkdown
+            components={{
+              // Style code blocks
+              code: ({ inline, className, children, ...props }) => {
+                if (inline) {
+                  return (
+                    <code className="qa-inline-code" {...props}>
+                      {children}
+                    </code>
+                  );
+                }
+                return (
+                  <pre className="qa-code-block">
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  </pre>
+                );
+              },
+              // Style paragraphs
+              p: ({ children }) => <p className="qa-paragraph">{children}</p>,
+              // Style lists
+              ul: ({ children }) => <ul className="qa-list">{children}</ul>,
+              ol: ({ children }) => <ol className="qa-list">{children}</ol>,
+              li: ({ children }) => <li className="qa-list-item">{children}</li>,
+              // Style headings
+              h1: ({ children }) => <h1 className="qa-heading qa-h1">{children}</h1>,
+              h2: ({ children }) => <h2 className="qa-heading qa-h2">{children}</h2>,
+              h3: ({ children }) => <h3 className="qa-heading qa-h3">{children}</h3>,
+              // Style blockquotes
+              blockquote: ({ children }) => <blockquote className="qa-blockquote">{children}</blockquote>,
+              // Style links
+              a: ({ children, href }) => (
+                <a href={href} className="qa-link" target="_blank" rel="noopener noreferrer">
+                  {children}
+                </a>
+              ),
+              // Style strong and emphasis
+              strong: ({ children }) => <strong className="qa-strong">{children}</strong>,
+              em: ({ children }) => <em className="qa-emphasis">{children}</em>,
+            }}
+          >
+            {msg.content}
+          </ReactMarkdown>
+        ) : (
+          <p className="qa-user-message">{msg.content}</p>
+        )}
+      </div>
+      {msg.confidence && (
+        <div className="qa-confidence">
+          Confidence: <span className={`confidence-${msg.confidence.toLowerCase()}`}>
+            {msg.confidence}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="qa">
@@ -245,11 +294,11 @@ function QA() {
       )}
       
       {historyLoading && conversation.length === 0 && (
-        <LoadingSpinner message="Loading conversation history..." />
+        <p className="qa-history-loading">Loading conversation history<span className="ellipsis-dots" /></p>
       )}
-      
+
       <div className="qa-conversation">
-        {conversation.length === 0 && !queryMutation.isPending && !preloadedQuery && !historyLoading && (
+        {conversation.length === 0 && historyConversation.length === 0 && !queryMutation.isPending && !preloadedQuery && !historyLoading && (
           <div className="qa-empty">
             <p>Start a conversation by asking a question below!</p>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
@@ -262,12 +311,12 @@ function QA() {
             )}
           </div>
         )}
-        {conversation.length > 0 && (
-          <div style={{ 
-            marginBottom: '1rem', 
-            padding: '0.75rem', 
-            backgroundColor: '#d1ecf1', 
-            border: '1px solid #bee5eb', 
+        {historyConversation.length > 0 && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '0.75rem',
+            backgroundColor: '#d1ecf1',
+            border: '1px solid #bee5eb',
             borderRadius: '4px',
             fontSize: '0.875rem',
             color: '#0c5460'
@@ -275,67 +324,8 @@ function QA() {
             💭 Showing conversation history - the AI remembers your previous questions!
           </div>
         )}
-        {conversation.map((msg, idx) => (
-          <div key={idx} className={`qa-message ${msg.type}`}>
-            <div className="qa-content">
-              {msg.type === 'assistant' ? (
-                <ReactMarkdown
-                  components={{
-                    // Style code blocks
-                    code: ({ inline, className, children, ...props }) => {
-                      if (inline) {
-                        return (
-                          <code className="qa-inline-code" {...props}>
-                            {children}
-                          </code>
-                        );
-                      }
-                      return (
-                        <pre className="qa-code-block">
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        </pre>
-                      );
-                    },
-                    // Style paragraphs
-                    p: ({ children }) => <p className="qa-paragraph">{children}</p>,
-                    // Style lists
-                    ul: ({ children }) => <ul className="qa-list">{children}</ul>,
-                    ol: ({ children }) => <ol className="qa-list">{children}</ol>,
-                    li: ({ children }) => <li className="qa-list-item">{children}</li>,
-                    // Style headings
-                    h1: ({ children }) => <h1 className="qa-heading qa-h1">{children}</h1>,
-                    h2: ({ children }) => <h2 className="qa-heading qa-h2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="qa-heading qa-h3">{children}</h3>,
-                    // Style blockquotes
-                    blockquote: ({ children }) => <blockquote className="qa-blockquote">{children}</blockquote>,
-                    // Style links
-                    a: ({ children, href }) => (
-                      <a href={href} className="qa-link" target="_blank" rel="noopener noreferrer">
-                        {children}
-                      </a>
-                    ),
-                    // Style strong and emphasis
-                    strong: ({ children }) => <strong className="qa-strong">{children}</strong>,
-                    em: ({ children }) => <em className="qa-emphasis">{children}</em>,
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              ) : (
-                <p className="qa-user-message">{msg.content}</p>
-              )}
-            </div>
-            {msg.confidence && (
-              <div className="qa-confidence">
-                Confidence: <span className={`confidence-${msg.confidence.toLowerCase()}`}>
-                  {msg.confidence}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
+        {historyConversation.map((msg, idx) => renderMessage(msg, `hist-${idx}`))}
+        {conversation.map((msg, idx) => renderMessage(msg, `live-${idx}`))}
         {/* Invisible element at the bottom for scrolling */}
         <div ref={conversationEndRef} style={{ height: '1px' }} />
       </div>
