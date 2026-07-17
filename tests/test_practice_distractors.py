@@ -58,6 +58,120 @@ def test_improve_practice_item_preserves_choices_on_3_key_response(monkeypatch):
     assert improved["question_text"] == "Improved question?"
 
 
+def test_improve_practice_item_ignores_empty_choices_from_model(monkeypatch):
+    """Bug: if the model's JSON explicitly returns `"choices": []`, the naive
+    {**item, **improved} merge clobbers the original's valid choices with an
+    empty list. Fixed: falsy/empty improved fields are filtered out before
+    merging, so the original's choices survive."""
+
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
+        return (
+            '{"question_text": "Improved question?", '
+            '"answer_text": "Improved answer", '
+            '"explanation": "Improved explanation that is long enough to pass validation checks.", '
+            '"choices": [], '
+            '"correct_answer": ""}'
+        )
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+
+    service = PracticeQualityService()
+    original_item = {
+        "question_text": "Old q",
+        "answer_text": "Old answer",
+        "explanation": "",  # too short -> triggers improvement
+        "choices": ["A) 1", "B) 2", "C) 3", "D) 4"],
+        "correct_answer": "B",
+    }
+
+    improved = service.improve_practice_item(
+        original_item, subject="Math", topic="Algebra", difficulty_level=3
+    )
+
+    assert improved["choices"] == ["A) 1", "B) 2", "C) 3", "D) 4"]
+    assert improved["correct_answer"] == "B"
+
+
+def test_improve_practice_item_regression_falls_back_to_original(monkeypatch):
+    """If the model's "improved" response introduces a format regression
+    (only 3 choices instead of 4) while leaving the item's pre-existing
+    deficiencies unfixed (empty answer_text/explanation get filtered out of
+    the merge, so the original's short answer and missing explanation
+    persist), the merged item scores worse than the original. Defensive
+    check: improve_practice_item must return the original unchanged rather
+    than ship a regression."""
+
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
+        return (
+            '{"question_text": "", '
+            '"answer_text": "", '
+            '"explanation": "", '
+            '"choices": ["A) new1", "B) new2", "C) new3"]}'
+        )
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+
+    service = PracticeQualityService()
+    original_item = {
+        "question_text": "Old q",  # too short -> triggers improvement
+        "answer_text": "ok",  # too short
+        "explanation": "",  # missing
+        "choices": ["A) 1", "B) 2", "C) 3", "D) 4"],
+        "correct_answer": "B",
+    }
+    original_validation = service.validate_practice_item(original_item)
+    assert not original_validation["is_valid"]  # sanity: AI path is taken
+
+    improved = service.improve_practice_item(
+        original_item, subject="Math", topic="Algebra", difficulty_level=3
+    )
+
+    merged_validation = service.validate_practice_item(improved)
+    # The fix must never regress below the original's score - and since the
+    # regression is caught, the original item itself should come back.
+    assert merged_validation["quality_score"] >= original_validation["quality_score"]
+    assert improved == original_item
+
+
+def test_improve_practice_item_merges_when_all_fields_valid(monkeypatch):
+    """Sanity check: when the model returns a fully valid improved item, the
+    merge should proceed normally (not defensively fall back to original)."""
+
+    def fake_chat_completion(
+        messages, temperature=None, max_tokens=None, response_format=None
+    ):
+        return (
+            '{"question_text": "What is the improved question here?", '
+            '"answer_text": "Improved answer text", '
+            '"explanation": "Improved explanation that is long enough to pass validation checks.", '
+            '"choices": ["A) new1", "B) new2", "C) new3", "D) new4"], '
+            '"correct_answer": "C"}'
+        )
+
+    monkeypatch.setattr(openai_client, "chat_completion", fake_chat_completion)
+
+    service = PracticeQualityService()
+    original_item = {
+        "question_text": "Old q",  # too short -> triggers improvement
+        "answer_text": "Old answer",
+        "explanation": "",  # missing
+        "choices": ["A) 1", "B) 2", "C) 3", "D) 4"],
+        "correct_answer": "B",
+    }
+
+    improved = service.improve_practice_item(
+        original_item, subject="Math", topic="Algebra", difficulty_level=3
+    )
+
+    assert improved["question_text"] == "What is the improved question here?"
+    assert improved["choices"] == ["A) new1", "B) new2", "C) new3", "D) new4"]
+    assert improved["correct_answer"] == "C"
+
+
 def test_generate_multiple_choice_options_numeric_no_placeholders():
     """Numeric correct answers should get plausible numeric distractors,
     never the generic placeholder strings."""

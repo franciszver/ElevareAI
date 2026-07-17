@@ -157,13 +157,30 @@ Include exactly 4 answer choices with one clearly correct answer. Your response 
             )
             if json_match:
                 improved = json.loads(json_match.group())
-                # Merge onto the original item so fields the model omits
-                # (e.g. choices/correct_answer) aren't silently dropped.
-                return {**item, **improved}
+            else:
+                # Fallback: parse similar to generator
+                improved = self._parse_improved_response(ai_response, item)
 
-            # Fallback: parse similar to generator
-            improved = self._parse_improved_response(ai_response, item)
-            return {**item, **improved}
+            # Merge onto the original item so fields the model omits
+            # (e.g. choices/correct_answer) aren't silently dropped. Also
+            # drop any falsy/empty improved values (None, "", []) so the
+            # model can never clobber a previously-valid field with
+            # emptiness.
+            improved_non_empty = {k: v for k, v in improved.items() if v}
+            merged = {**item, **improved_non_empty}
+
+            # Defensive check: improvement must not regress. If the merged
+            # item scores worse than the original under validation, ship
+            # the original unchanged instead.
+            original_validation = self.validate_practice_item(item)
+            merged_validation = self.validate_practice_item(merged)
+            if (
+                merged_validation["quality_score"]
+                < original_validation["quality_score"]
+            ):
+                return item
+
+            return merged
 
         except Exception as e:
             # Return original if improvement fails

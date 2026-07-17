@@ -51,6 +51,14 @@ class TestExtractLlmConfidence:
         assert low == 0.0
         assert high == 1.0
 
+    def test_answer_is_only_the_confidence_line_falls_back_to_original_text(self):
+        """Bug: if the entire input is just the CONFIDENCE line, stripping it
+        leaves an empty answer. Fixed: fall back to returning the original
+        unstripped text so the student never sees a blank answer."""
+        answer, confidence = extract_llm_confidence("CONFIDENCE: 0.9")
+        assert answer == "CONFIDENCE: 0.9"
+        assert confidence == 0.9
+
 
 class TestCalculateConfidenceWithProvidedLlmScore:
     def test_provided_value_skips_network_call(self, monkeypatch):

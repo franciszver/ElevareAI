@@ -46,13 +46,18 @@ def extract_llm_confidence(answer: str) -> Tuple[str, Optional[float]]:
         (stripped_answer, confidence) - confidence is None if the line is
         absent or its value is malformed/out-of-range. The stripped_answer
         never includes the CONFIDENCE line, regardless of whether extraction
-        of the value succeeded.
+        of the value succeeded. If stripping the CONFIDENCE line would leave
+        an empty answer (e.g. the whole input was just the CONFIDENCE line),
+        the original unstripped text is returned instead - a visible
+        confidence line is preferable to a blank answer.
     """
     match = _CONFIDENCE_LINE_RE.search(answer)
     if not match:
         return answer, None
 
     stripped_answer = answer[: match.start()].rstrip()
+    if not stripped_answer:
+        stripped_answer = answer
 
     try:
         confidence = float(match.group(1))
