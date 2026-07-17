@@ -1,0 +1,247 @@
+{
+  "note": "Real deployed-model outputs from openai/gpt-oss-20b:free (via OpenRouter), captured as eval fixtures so downstream graders/judge can run against them without repeated live API calls.",
+  "model": "openai/gpt-oss-20b:free",
+  "captured_calls": [
+    {
+      "id": "qa_clear_factoring",
+      "surface": "qa",
+      "input": {
+        "query": "How do I factor x^2 + 7x + 12?",
+        "context": {
+          "subject": "Algebra"
+        },
+        "recent_sessions": [
+          "Factoring quadratics",
+          "Solving linear equations"
+        ],
+        "current_practice": "Factoring practice set 3",
+        "is_ambiguous": false,
+        "is_multi_part": false,
+        "is_out_of_scope": false
+      },
+      "output": "To factor the quadratic \\(x^2 + 7x + 12\\):\n\n1. Look for two numbers that multiply to the constant term \\(12\\) and add to the linear coefficient \\(7\\).\n2. The pair \\(3\\) and \\(4\\) works because  \n   \\[\n   3 \\times 4 = 12 \\quad\\text{and}\\quad 3 + 4 = 7.\n   \\]\n3. Rewrite the middle term using these numbers:\n   \\[\n   x^2 + 7x + 12 = x^2 + 3x + 4x + 12.\n   \\]\n4. Group and factor each pair:\n   \\[\n   (x^2 + 3x) + (4x + 12) = x(x + 3) + 4(x + 3).\n   \\]\n5. Factor out the common binomial factor \\((x + 3)\\):\n   \\[\n   x(x + 3) + 4(x + 3) = (x + 3)(x + 4).\n   \\]\n\nSo the factored form is  \n\\[\n\\boxed{(x + 3)(x + 4)}.\n\\]\n\n**Quick check:** Multiply back: \\((x + 3)(x + 4) = x^2 + 4x + 3x + 12 = x^2 + 7x + 12\\). It matches the original quadratic.\n\nIf you’re unsure about any step, try re‑checking the numbers that multiply to \\(12\\) and add to \\(7\\), or ask your tutor for extra practice. Good luck!\n\nCONFIDENCE: 1.00",
+      "latency_s": 17.995,
+      "tokens": {
+        "prompt_tokens": 360,
+        "completion_tokens": 397,
+        "total_tokens": 757
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "qa_conceptual_photosynthesis",
+      "surface": "qa",
+      "input": {
+        "query": "Explain photosynthesis",
+        "context": {
+          "subject": "Biology"
+        },
+        "recent_sessions": [
+          "Cell structure",
+          "Plant biology intro"
+        ],
+        "current_practice": null,
+        "is_ambiguous": false,
+        "is_multi_part": false,
+        "is_out_of_scope": false
+      },
+      "output": "Photosynthesis is the process by which green plants, algae, and some bacteria convert light energy into chemical energy stored in glucose. It happens mainly in chloroplasts, where the pigment chlorophyll captures photons. The overall reaction can be written as\n\n$$6\\,\\text{CO}_2 + 6\\,\\text{H}_2\\text{O} + \\text{light} \\;\\longrightarrow\\; C_6H_{12}O_6 + 6\\,\\text{O}_2.$$\n\nThe process has two stages:\n\n1. **Light‑dependent reactions**  \n   • Occur in the thylakoid membranes.  \n   • Light excites electrons in chlorophyll, producing ATP and NADPH while oxygen is released from water.\n\n2. **Calvin–Benson cycle (dark reactions)**  \n   • Takes place in the stroma.  \n   • Uses ATP and NADPH to fix $\\,\\text{CO}_2$ into glyceraldehyde‑3‑phosphate (G3P), which can be converted into glucose and other carbohydrates.\n\nKey points to remember:\n\n- Chlorophyll absorbs mainly blue and red light, reflecting green, which is why plants look green.  \n- Oxygen is a by‑product, essential for most life on Earth.  \n- The entire process links the sun’s energy to the food chain, powering ecosystems.\n\nIf you’d like to dive deeper into the enzymes involved or variations in different plant types, let me know—I’m happy to explain more!  \n\nCONFIDENCE: 0.98",
+      "latency_s": 13.873,
+      "tokens": {
+        "prompt_tokens": 336,
+        "completion_tokens": 359,
+        "total_tokens": 695
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "qa_ambiguous",
+      "surface": "qa",
+      "input": {
+        "query": "I don't get it",
+        "context": {
+          "subject": "Algebra"
+        },
+        "recent_sessions": [
+          "Factoring quadratics",
+          "Graphing parabolas"
+        ],
+        "current_practice": "Factoring practice set 3",
+        "is_ambiguous": true,
+        "is_multi_part": false,
+        "is_out_of_scope": false
+      },
+      "output": "It sounds like you’re stuck on something from our last sessions on factoring quadratics and graphing parabolas. Which part is giving you trouble?  \n- Are you having trouble factoring a particular quadratic?  \n- Do you need help understanding how the factored form relates to the graph?  \n- Or maybe the vertex/axis of symmetry calculations?\n\nLet me know which specific concept you’d like to focus on, and I’ll walk you through it step by step. If it’s something you’d prefer to discuss with your tutor, that’s a great idea too—sometimes a quick chat can clear up the confusion right away. You’ve been doing a solid job tackling these problems, so let’s pinpoint the sticking point and get you back on track!  \n\nCONFIDENCE: 0.85",
+      "latency_s": 11.885,
+      "tokens": {
+        "prompt_tokens": 339,
+        "completion_tokens": 216,
+        "total_tokens": 555
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "qa_out_of_scope",
+      "surface": "qa",
+      "input": {
+        "query": "What's the weather today?",
+        "context": null,
+        "recent_sessions": null,
+        "current_practice": null,
+        "is_ambiguous": false,
+        "is_multi_part": false,
+        "is_out_of_scope": true
+      },
+      "output": "I’m here to help with academic questions and learning topics. For up‑to‑date weather information, I recommend checking a trusted weather website, app, or local news source. If you have a specific educational question—whether it’s about a math concept, a science topic, or preparing for an exam—feel free to ask, and I’ll gladly assist!  \n\nCONFIDENCE: 0.90",
+      "latency_s": 9.331,
+      "tokens": {
+        "prompt_tokens": 307,
+        "completion_tokens": 166,
+        "total_tokens": 473
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "practice_biology_cell_structure",
+      "surface": "practice",
+      "input": {
+        "subject": "Biology",
+        "topic": "Cell Structure",
+        "difficulty_level": 3,
+        "goal_tags": [
+          "identify organelles"
+        ]
+      },
+      "output": "{\"question_text\":\"Which organelle is responsible for producing ATP in eukaryotic cells?\",\"choices\":[\"A) Nucleus\",\"B) Ribosome\",\"C) Mitochondrion\",\"D) Endoplasmic reticulum\"],\"correct_answer\":\"C\",\"answer_text\":\"C) Mitochondrion\",\"explanation\":\"The mitochondrion is the powerhouse of the cell, where oxidative phosphorylation generates ATP.\"}",
+      "latency_s": 47.933,
+      "tokens": {
+        "prompt_tokens": 439,
+        "completion_tokens": 285,
+        "total_tokens": 724
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "practice_chemistry_bonding",
+      "surface": "practice",
+      "input": {
+        "subject": "Chemistry",
+        "topic": "Ionic and Covalent Bonding",
+        "difficulty_level": 5,
+        "goal_tags": null
+      },
+      "output": "{\n  \"question_text\": \"Which of the following statements best describes the difference between ionic and covalent bonds?\",\n  \"choices\": [\n    \"A) Ionic bonds involve sharing of electrons between atoms, whereas covalent bonds involve transfer of electrons.\",\n    \"B) Ionic bonds form between atoms with large differences in electronegativity, leading to electron transfer, while covalent bonds involve sharing of electrons between atoms with similar electronegativities.\",\n    \"C) Ionic bonds are typically found in molecular compounds, whereas covalent bonds are typical in metal lattices.\",\n    \"D) Ionic bonds are weaker than covalent bonds in all cases.\"\n  ],\n  \"correct_answer\": \"B\",\n  \"answer_text\": \"B) Ionic bonds form between atoms with large differences in electronegativity, leading to electron transfer, while covalent bonds involve sharing of electrons between atoms with similar electronegativities.\",\n  \"explanation\": \"Ionic bonding results from a large electronegativity difference that causes one atom to transfer electrons to another, creating ions, whereas covalent bonding occurs when atoms share electrons because their electronegativities are similar.\"\n}",
+      "latency_s": 14.142,
+      "tokens": {
+        "prompt_tokens": 439,
+        "completion_tokens": 467,
+        "total_tokens": 906
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "practice_history_causes_ww1",
+      "surface": "practice",
+      "input": {
+        "subject": "History",
+        "topic": "Causes of World War I",
+        "difficulty_level": 7,
+        "goal_tags": [
+          "analyze primary causes"
+        ]
+      },
+      "output": "{\n  \"question_text\": \"Which event directly precipitated the immediate outbreak of World War I in 1914?\",\n  \"choices\": [\n    \"A) The assassination of Archduke Franz Ferdinand of Austria-Hungary\",\n    \"B) The signing of the Treaty of Versailles\",\n    \"C) The establishment of the League of Nations\",\n    \"D) The Cuban Missile Crisis\"\n  ],\n  \"correct_answer\": \"A\",\n  \"answer_text\": \"A) The assassination of Archduke Franz Ferdinand of Austria-Hungary\",\n  \"explanation\": \"The assassination on 28 June 1914 triggered a rapid escalation of diplomatic crises, leading Austria-Hungary to issue an ultimatum to Serbia and ultimately resulting in the declaration of war by several major powers.\"\n}",
+      "latency_s": 19.287,
+      "tokens": {
+        "prompt_tokens": 442,
+        "completion_tokens": 821,
+        "total_tokens": 1263
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "summary_normal_algebra",
+      "surface": "summary",
+      "input": {
+        "transcript": "Tutor: \"Today we're working on quadratic equations. Can you solve x² + 5x + 6 = 0?\"\n    Student: \"I think I factor it... (x + 2)(x + 3) = 0, so x = -2 or x = -3?\"\n    Tutor: \"Perfect! You've got it. Now let's try a harder one: 2x² - 7x + 3 = 0\"\n    Student: \"Hmm, I need to factor this... (2x - 1)(x - 3) = 0?\"\n    Tutor: \"Excellent work! You're really getting the hang of factoring. For homework, try problems 1-10 in chapter 5.\"",
+        "session_duration_minutes": 45,
+        "subject": "Algebra",
+        "topics_covered": [
+          "Factoring quadratics"
+        ],
+        "student_name": "Maya"
+      },
+      "output": "**Session Narrative**\n\nMaya spent 45 minutes mastering the art of factoring quadratic equations. She confidently factored the simple equation \\(x^2+5x+6=0\\) into \\((x+2)(x+3)=0\\), correctly identifying the roots \\(x=-2\\) and \\(x=-3\\). When presented with the more challenging \\(2x^2-7x+3=0\\), she applied the same strategy and arrived at the correct factorization \\((2x-1)(x-3)=0\\). Throughout the session, Maya’s enthusiasm and problem‑solving skills grew, and she expressed a clear sense of accomplishment. The tutor praised her progress, reinforcing her confidence in tackling future quadratic problems.\n\n**Actionable Next Steps**\n\n1. **Practice mixed‑leading‑coefficient quadratics** – Complete problems 1–10 in Chapter 5, then try additional examples with leading coefficients other than 1 to reinforce the factoring process.\n2. **Explore the quadratic formula** – Solve a few of the same equations using the formula to see how factoring and the formula interrelate; this will deepen her understanding of solution methods.\n3. **Check for alternate factorizations** – For each problem, write down the original quadratic and then factor it in two different ways (if possible) to confirm that both approaches yield the same roots.\n\nThese steps will help Maya solidify her factoring skills and broaden her algebraic toolbox. Great job, Maya!",
+      "latency_s": 15.879,
+      "tokens": {
+        "prompt_tokens": 362,
+        "completion_tokens": 407,
+        "total_tokens": 769
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "summary_chemistry_advanced",
+      "surface": "summary",
+      "input": {
+        "transcript": "Tutor: \"Today we're diving into orbital hybridization. Can you explain sp³ hybridization?\"\n    Student: \"I think it's when one s orbital and three p orbitals combine to form four sp³ orbitals?\"\n    Tutor: \"Exactly! And what shape does this create?\"\n    Student: \"Tetrahedral?\"\n    Tutor: \"Perfect! You've mastered this concept. Let's move on to sp² hybridization next time.\"",
+        "session_duration_minutes": 60,
+        "subject": "Chemistry",
+        "topics_covered": [
+          "Orbital hybridization",
+          "sp3 hybridization"
+        ],
+        "student_name": "Jordan"
+      },
+      "output": "**Session Summary**\n\nJordan spent a full hour mastering the fundamentals of orbital hybridization, focusing on sp³ hybridization. During the session, Jordan confidently explained that sp³ hybridization involves the mixing of one s orbital and three p orbitals to produce four equivalent sp³ orbitals, and correctly identified the resulting tetrahedral geometry. The tutor praised Jordan’s clear understanding and encouraged further exploration of related concepts.\n\n**Next Steps**\n\n1. **Practice Geometry Identification** – Work through at least three practice problems that ask you to draw the shapes of sp³, sp², and sp hybridized orbitals from given electron configurations.  \n2. **Apply to Molecular Structures** – Choose a simple molecule (e.g., CH₄, BF₃, or CO₂) and determine the hybridization of each atom, then sketch the Lewis structure and bond angles.  \n3. **Preview sp² Hybridization** – Review the key differences between sp³ and sp² (number of hybrid orbitals, geometry, and remaining unhybridized p orbital) so you’re ready to tackle sp² hybridization in the next session.",
+      "latency_s": 18.463,
+      "tokens": {
+        "prompt_tokens": 303,
+        "completion_tokens": 318,
+        "total_tokens": 621
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    },
+    {
+      "id": "summary_short_session",
+      "surface": "summary",
+      "input": {
+        "transcript": "Tutor: \"We only have 5 minutes today. Let's quickly review your homework.\"\n    Student: \"I finished problems 1-5, but I'm stuck on problem 6.\"\n    Tutor: \"Let's tackle that next time. Great work today!\"",
+        "session_duration_minutes": 5,
+        "subject": "Algebra",
+        "topics_covered": [
+          "Homework review"
+        ],
+        "student_name": null
+      },
+      "output": "**Narrative Summary**\n\nIn this quick 5‑minute check‑in, you did a great job completing homework problems 1–5, showing solid progress on the recent algebra unit. You also identified a stumbling block with problem 6, which is a perfect opportunity for deeper focus next time. The tutor praised your effort and set the stage for a more detailed review in the following session.\n\n**Next Steps**\n\n1. **Review the concept behind problem 6** – revisit the lesson notes or textbook passage that covers this topic to refresh your understanding.  \n2. **Practice similar problems** – find 2–3 extra exercises that target the same skill set (e.g., solving linear equations, simplifying expressions, or factoring).  \n3. **Prepare a question** – jot down any specific part of problem 6 that confuses you (e.g., a particular step or algebraic rule) so you can bring it to the next tutoring session for a focused discussion.",
+      "latency_s": 9.26,
+      "tokens": {
+        "prompt_tokens": 255,
+        "completion_tokens": 309,
+        "total_tokens": 564
+      },
+      "finish_reason": "stop",
+      "model": "openai/gpt-oss-20b:free",
+      "error": null
+    }
+  ]
+}
