@@ -24,6 +24,7 @@ from fastapi import (
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DBSession
+from starlette.concurrency import run_in_threadpool
 
 from src.api.middleware.auth import get_current_user_optional
 from src.config.database import get_db
@@ -321,8 +322,11 @@ async def assign_practice(
         while len(items) < num_items and attempts < needed * max_attempts_per_item:
             attempts += 1
 
-            # Generate AI item
-            ai_item_data = generator.generate_practice_item(
+            # Generate AI item (offloaded - generate_practice_item makes
+            # synchronous openai_client calls that would otherwise block
+            # the event loop for the duration of the LLM round-trip)
+            ai_item_data = await run_in_threadpool(
+                generator.generate_practice_item,
                 subject=subject,
                 topic=topic or subject,
                 difficulty_level=(difficulty_min + difficulty_max) // 2,

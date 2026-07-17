@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
+from starlette.concurrency import run_in_threadpool
 
 from src.api.middleware.auth import get_current_user_optional
 from src.api.schemas.qa import QAResponse, QueryRequest
@@ -216,7 +217,7 @@ async def submit_query(
                 )
 
         try:
-            answer = openai_client.chat_completion(prompt)
+            answer = await run_in_threadpool(openai_client.chat_completion, prompt)
         except Exception as e:
             logger.error(f"Failed to generate answer: {str(e)}", exc_info=True)
             raise HTTPException(
@@ -228,8 +229,12 @@ async def submit_query(
         # needed. Falls back to None (legacy behavior) if the model omits it.
         answer, llm_confidence = extract_llm_confidence(answer)
 
-        # Calculate confidence with query analysis
-        confidence_result = calculate_confidence(
+        # Calculate confidence with query analysis. calculate_confidence still
+        # falls back to a synchronous chat_completion call when llm_confidence
+        # is None (e.g. the model omitted the CONFIDENCE line), so offload it
+        # the same way to avoid blocking the event loop.
+        confidence_result = await run_in_threadpool(
+            calculate_confidence,
             query=request.query,
             answer=answer,
             context=context,
