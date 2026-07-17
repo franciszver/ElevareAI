@@ -201,6 +201,7 @@ docker-compose down
    python scripts/seed_demo_data.py
    ```
    This applies all database migrations and seeds a complete demo environment idempotently in one command.
+   A "(trapped) error reading bcrypt version" warning is harmless — it's a passlib/bcrypt version probe and can be safely ignored.
 
 6. **Run the backend API:**
    ```bash
@@ -220,6 +221,12 @@ npm run dev
 
 For production build: `npm run build`
 
+The dev server uses Vite's proxy fallback for the backend out of the box. To point at a specific backend, create `examples/frontend-starter/.env.local`:
+```env
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+```
+See `examples/frontend-starter/README.md` for more configuration options.
+
 ### Running Tests
 
 ```bash
@@ -228,7 +235,7 @@ pytest
 ```
 
 Tests run with mocked AI calls via the `mock_ai` fixture in `tests/conftest.py`.  
-Expected: **110 passed, 1 skipped, 3 xfailed**
+Expected: **172 passed, 1 skipped, 3 xfailed** (count grows as tests are added — 0 failed is the signal)
 
 **Note:** AI features at runtime require an OpenRouter API key (sk-or-v1-... format) for the free-tier model openai/gpt-oss-20b:free; tests never need one.
 
