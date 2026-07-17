@@ -5,10 +5,13 @@ Webhook delivery and management
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
+import socket
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 from sqlalchemy.orm import Session
@@ -23,6 +26,70 @@ except ImportError:
     from src.models.integration import Webhook, WebhookEvent
 
 logger = logging.getLogger(__name__)
+
+# Explicit cloud metadata / localhost-alias blocklist. Most of these are
+# already covered by the ipaddress private/loopback/link-local checks below,
+# but they are called out by name for clarity and defense in depth.
+_BLOCKED_HOSTNAMES = {"localhost", "metadata.google.internal"}
+_BLOCKED_IPS = {"169.254.169.254", "::1"}
+
+
+def _is_safe_webhook_url(url: str) -> Tuple[bool, str]:
+    """
+    Guard against SSRF: only allow http(s) URLs that resolve exclusively to
+    public IP addresses.
+
+    NOTE (TOCTOU): this resolves the hostname now and checks those IPs, but
+    the actual outbound request (requests.post) re-resolves the hostname
+    itself. A DNS-rebinding attacker could change the DNS answer between
+    this check and the connect. A fully robust fix would resolve once, pin
+    the IP, and connect to that pinned IP directly (e.g. via a custom
+    transport/adapter). For this demo, resolve-and-check is accepted as
+    sufficient.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False, "unparseable URL"
+
+    if parsed.scheme not in ("http", "https"):
+        return False, f"disallowed scheme: {parsed.scheme!r}"
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False, "missing hostname"
+
+    if hostname.lower() in _BLOCKED_HOSTNAMES:
+        return False, "blocked hostname"
+
+    try:
+        addrinfo = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False, "unresolvable host"
+
+    if not addrinfo:
+        return False, "unresolvable host"
+
+    for info in addrinfo:
+        ip_str = info[4][0]
+        if ip_str in _BLOCKED_IPS:
+            return False, "blocked IP address"
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False, "invalid resolved IP"
+
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return False, f"blocked IP range: {ip}"
+
+    return True, "ok"
 
 
 class WebhookService:
@@ -117,6 +184,20 @@ class WebhookService:
         # If a direct webhook URL is provided, send directly without
         # looking up registered webhooks
         if webhook_url:
+            safe, reason = _is_safe_webhook_url(webhook_url)
+            if not safe:
+                logger.warning(
+                    "Blocked webhook delivery to unsafe target host=%s (%s)",
+                    urlparse(webhook_url).hostname,
+                    reason,
+                )
+                return {
+                    "success": False,
+                    "blocked": True,
+                    "error": "webhook target blocked",
+                    "url": webhook_url,
+                }
+
             webhook_payload = {
                 "event": event_type,
                 "timestamp": datetime.utcnow().isoformat(),
@@ -130,8 +211,24 @@ class WebhookService:
 
             try:
                 response = requests.post(
-                    webhook_url, json=webhook_payload, headers=headers, timeout=10
+                    webhook_url,
+                    json=webhook_payload,
+                    headers=headers,
+                    timeout=10,
+                    allow_redirects=False,
                 )
+                if 300 <= response.status_code < 400:
+                    logger.warning(
+                        "Refused redirect (3xx) from webhook target host=%s status=%s",
+                        urlparse(webhook_url).hostname,
+                        response.status_code,
+                    )
+                    return {
+                        "success": False,
+                        "http_status": response.status_code,
+                        "url": webhook_url,
+                        "error": f"redirect refused (3xx) to {response.status_code}",
+                    }
                 return {
                     "success": response.status_code < 400,
                     "http_status": response.status_code,
@@ -226,35 +323,89 @@ class WebhookService:
             )
             headers["X-Webhook-Signature"] = signature
 
-        try:
-            response = requests.post(
-                webhook.url, json=webhook_payload, headers=headers, timeout=10
+        safe, reason = _is_safe_webhook_url(webhook.url)
+        if not safe:
+            logger.warning(
+                "Blocked webhook delivery to unsafe target host=%s webhook_id=%s (%s)",
+                urlparse(webhook.url).hostname,
+                webhook.id,
+                reason,
             )
 
+            event.status = "failed"
+            event.response_body = "Blocked: webhook target is not a public address"
+            event.attempts = 1
+
+            webhook.error_count += 1
+            webhook.last_error = "Blocked: webhook target is not a public address"
+
+            self.db.commit()
+
+            return {
+                "success": False,
+                "blocked": True,
+                "webhook_id": str(webhook.id),
+                "error": "webhook target blocked",
+                "event_id": str(event.id),
+            }
+
+        try:
+            response = requests.post(
+                webhook.url,
+                json=webhook_payload,
+                headers=headers,
+                timeout=10,
+                allow_redirects=False,
+            )
+
+            is_redirect = 300 <= response.status_code < 400
+            if is_redirect:
+                logger.warning(
+                    "Refused redirect (3xx) from webhook target host=%s webhook_id=%s status=%s",
+                    urlparse(webhook.url).hostname,
+                    webhook.id,
+                    response.status_code,
+                )
+
             # Update event status
-            event.status = "sent" if response.status_code < 400 else "failed"
+            event.status = (
+                "failed"
+                if is_redirect
+                else ("sent" if response.status_code < 400 else "failed")
+            )
             event.http_status = response.status_code
-            event.response_body = response.text[:1000]  # Limit response size
+            event.response_body = (
+                f"redirect refused (3xx) to {response.status_code}"
+                if is_redirect
+                else response.text[:1000]  # Limit response size
+            )
             event.sent_at = datetime.utcnow()
             event.attempts = 1
 
             # Update webhook stats
             webhook.last_triggered_at = datetime.utcnow()
-            if response.status_code < 400:
+            if not is_redirect and response.status_code < 400:
                 webhook.success_count += 1
             else:
                 webhook.error_count += 1
                 webhook.last_error = (
-                    f"HTTP {response.status_code}: {response.text[:200]}"
+                    f"redirect refused (3xx) to {response.status_code}"
+                    if is_redirect
+                    else f"HTTP {response.status_code}: {response.text[:200]}"
                 )
 
             self.db.commit()
 
             return {
-                "success": response.status_code < 400,
+                "success": (not is_redirect) and response.status_code < 400,
                 "webhook_id": str(webhook.id),
                 "http_status": response.status_code,
                 "event_id": str(event.id),
+                **(
+                    {"error": f"redirect refused (3xx) to {response.status_code}"}
+                    if is_redirect
+                    else {}
+                ),
             }
 
         except Exception as e:

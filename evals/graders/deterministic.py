@@ -426,11 +426,27 @@ def _parse_summary_text(text: str):
     dict."""
     text = text or ""
     if "next steps" in text.lower() or "next:" in text.lower():
-        parts = re.split(
-            r"next steps:", text, maxsplit=1, flags=re.IGNORECASE
-        ) or re.split(r"next:", text, maxsplit=1, flags=re.IGNORECASE)
-        narrative = parts[0].strip()
-        steps_text = parts[1].strip() if len(parts) > 1 else ""
+        # Mirrors summarizer.py's generate_summary: prefer "next steps:"
+        # over a bare "next:" (which can appear mid-narrative), splitting
+        # at the LAST "next steps:" occurrence if there are multiple, and
+        # only falling back to "next:" when "next steps:" is absent.
+        next_steps_matches = list(
+            re.finditer(r"next steps:", text, flags=re.IGNORECASE)
+        )
+        split_match = (
+            next_steps_matches[-1]
+            if next_steps_matches
+            else re.search(r"next:", text, flags=re.IGNORECASE)
+        )
+        if split_match is None:
+            # Outer check can trigger on a bare "next steps" substring with
+            # no colon (e.g. "...these next steps will help..."); there's no
+            # actual marker to split on, so treat the whole text as narrative.
+            narrative = text.strip()
+            steps_text = ""
+        else:
+            narrative = text[: split_match.start()].strip()
+            steps_text = text[split_match.end() :].strip()
         steps = (
             re.findall(r"[-•*]\s*(.+?)(?=\n|$)", steps_text)
             or re.findall(r"\d+\.\s*(.+?)(?=\n|$)", steps_text)

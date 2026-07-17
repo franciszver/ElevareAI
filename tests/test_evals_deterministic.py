@@ -286,6 +286,14 @@ class TestSummaryHasNarrative:
         result = det.summary_has_narrative("A plain AI summary paragraph.")
         assert result.passed is True
 
+    def test_raw_text_with_capitalized_next_steps_marker_parses_narrative(self):
+        # Mirrors summarizer.py's case-insensitive split; capitalization
+        # must not defeat parsing.
+        result = det.summary_has_narrative(
+            "Great session on quadratics.\nNext steps:\n1. Practice factoring\n2. Review the formula"
+        )
+        assert result.passed is True
+
 
 class TestSummaryHasNextSteps:
     def test_dict_with_two_steps_passes(self):
@@ -301,6 +309,36 @@ class TestSummaryHasNextSteps:
     def test_more_than_three_steps_fails(self):
         result = det.summary_has_next_steps({"next_steps": ["a", "b", "c", "d"]})
         assert result.passed is False
+
+    def test_raw_text_with_bare_next_marker_parses_steps(self):
+        # Regression test for the `re.split(...) or re.split(...)` bug:
+        # re.split always returns a non-empty list, so the `or` never fell
+        # through to the "next:" pattern when "next steps:" didn't match.
+        result = det.summary_has_next_steps(
+            "Great session.\nNext: Practice factoring, Review the formula"
+        )
+        assert result.passed is True
+
+    def test_raw_text_with_two_markers_prefers_next_steps_section(self):
+        # Regression test: a mid-narrative "Next:" occurring before a later
+        # "Next steps:" section must not be treated as the split point - the
+        # grader must split at "next steps:" (mirrors summarizer.py).
+        narrative, next_steps = det._parse_summary_text(
+            "We reviewed X. Next: I'll grab coffee.\n\n"
+            "Next steps:\n"
+            "1. Practice factoring\n"
+            "2. Review notes"
+        )
+        assert narrative == "We reviewed X. Next: I'll grab coffee."
+        assert next_steps == ["Practice factoring", "Review notes"]
+
+        result = det.summary_has_next_steps(
+            "We reviewed X. Next: I'll grab coffee.\n\n"
+            "Next steps:\n"
+            "1. Practice factoring\n"
+            "2. Review notes"
+        )
+        assert result.passed is True
 
 
 class TestSummaryTypeMatchesDuration:

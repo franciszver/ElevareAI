@@ -76,13 +76,31 @@ class SessionSummarizer:
                     "next steps" in ai_response.lower()
                     or "next:" in ai_response.lower()
                 ):
-                    parts = re.split(
-                        r"next steps:", ai_response, maxsplit=1, flags=re.IGNORECASE
-                    ) or re.split(
-                        r"next:", ai_response, maxsplit=1, flags=re.IGNORECASE
+                    # Prefer the "next steps:" marker over a bare "next:",
+                    # since a mid-narrative "Next:" can appear before the
+                    # real next-steps section. If "next steps:" occurs more
+                    # than once, split at the LAST occurrence (the
+                    # next-steps section is conventionally at the end).
+                    # Only fall back to "next:" when "next steps:" is
+                    # absent entirely.
+                    next_steps_matches = list(
+                        re.finditer(r"next steps:", ai_response, flags=re.IGNORECASE)
                     )
-                    narrative = parts[0].strip()
-                    steps_text = parts[1].strip() if len(parts) > 1 else ""
+                    split_match = (
+                        next_steps_matches[-1]
+                        if next_steps_matches
+                        else re.search(r"next:", ai_response, flags=re.IGNORECASE)
+                    )
+                    if split_match is None:
+                        # The outer check can trigger on a bare "next steps"
+                        # substring with no colon (e.g. "...these next steps
+                        # will help..."); there's no actual marker to split
+                        # on, so treat the whole response as narrative.
+                        narrative = ai_response.strip()
+                        steps_text = ""
+                    else:
+                        narrative = ai_response[: split_match.start()].strip()
+                        steps_text = ai_response[split_match.end() :].strip()
                     # Extract steps (numbered or bulleted)
                     steps = (
                         re.findall(r"[-•*]\s*(.+?)(?=\n|$)", steps_text)

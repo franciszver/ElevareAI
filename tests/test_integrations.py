@@ -5,11 +5,13 @@ Tests for integration services (LMS, Calendar, Notifications, Webhooks)
 
 import uuid
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
+import pytest
 from sqlalchemy.orm import Session
 
 from src.services.integrations.notifications import NotificationService
-from src.services.integrations.webhooks import WebhookService
+from src.services.integrations.webhooks import WebhookService, _is_safe_webhook_url
 from tests.test_models import TestUser
 
 
@@ -185,3 +187,247 @@ def test_unregister_device_token(db_session: Session):
 
     assert result["success"] is True
     assert "unregistered_at" in result
+
+
+# --- SSRF hardening (P2.1) -------------------------------------------------
+
+
+def _fake_getaddrinfo(ip_map):
+    """Build a fake socket.getaddrinfo that resolves hosts to given IPs."""
+    import socket as socket_module
+
+    def _fn(host, *args, **kwargs):
+        if host not in ip_map:
+            raise socket_module.gaierror(f"unmocked host: {host}")
+        return [(2, 1, 6, "", (ip, 0)) for ip in ip_map[host]]
+
+    return _fn
+
+
+@pytest.mark.parametrize(
+    "url,ip_map,expected_safe",
+    [
+        ("http://127.0.0.1:8000/x", {"127.0.0.1": ["127.0.0.1"]}, False),
+        (
+            "http://169.254.169.254/latest/meta-data",
+            {"169.254.169.254": ["169.254.169.254"]},
+            False,
+        ),
+        ("http://10.0.0.5/x", {"10.0.0.5": ["10.0.0.5"]}, False),
+        ("http://[::1]/x", {"::1": ["::1"]}, False),
+        ("file:///etc/passwd", {}, False),
+        ("ftp://example.com/x", {"example.com": ["93.184.216.34"]}, False),
+        ("https://example.com/webhook", {"example.com": ["93.184.216.34"]}, True),
+    ],
+)
+def test_is_safe_webhook_url(url, ip_map, expected_safe):
+    """_is_safe_webhook_url blocks private/loopback/link-local/metadata/reserved
+    targets and disallowed schemes, but allows public http(s) hosts."""
+    with patch("socket.getaddrinfo", side_effect=_fake_getaddrinfo(ip_map)):
+        safe, reason = _is_safe_webhook_url(url)
+
+    assert safe is expected_safe, reason
+
+
+def test_trigger_webhook_direct_url_blocks_ssrf_target(db_session: Session):
+    """trigger_webhook(webhook_url=...) must NOT POST to a private/internal
+    target, and must return a blocked/failed result instead."""
+    service = WebhookService(db_session)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"127.0.0.1": ["127.0.0.1"]}),
+    ), patch("requests.post") as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="http://127.0.0.1:8000/internal",
+        )
+
+    mock_post.assert_not_called()
+    assert result["success"] is False
+    assert result.get("blocked") is True
+
+
+def test_trigger_webhook_direct_url_blocks_metadata_target(db_session: Session):
+    """The cloud metadata endpoint must be blocked."""
+    service = WebhookService(db_session)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"169.254.169.254": ["169.254.169.254"]}),
+    ), patch("requests.post") as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="http://169.254.169.254/latest/meta-data",
+        )
+
+    mock_post.assert_not_called()
+    assert result["success"] is False
+    assert result.get("blocked") is True
+
+
+def test_trigger_webhook_direct_url_allows_public_target(db_session: Session):
+    """A normal public https webhook target must still be delivered to."""
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(status_code=200)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="https://example.com/webhook",
+        )
+
+    mock_post.assert_called_once()
+    assert result["success"] is True
+
+
+def test_deliver_webhook_blocks_registered_webhook_with_private_target(
+    db_session: Session,
+):
+    """A registered webhook whose URL resolves to a private IP must be
+    blocked, without breaking the rest of the trigger_webhook batch."""
+    from tests.test_models import TestWebhook
+
+    user = TestUser(
+        id=str(uuid.uuid4()),
+        cognito_sub="user-sub-private",
+        email="private@test.com",
+        role="admin",
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    webhook = TestWebhook(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        url="http://10.0.0.5/internal-hook",
+        events=["practice.completed"],
+        status="active",
+    )
+    db_session.add(webhook)
+    db_session.commit()
+
+    service = WebhookService(db_session)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"10.0.0.5": ["10.0.0.5"]}),
+    ), patch("requests.post") as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"practice_id": "123"},
+        )
+
+    mock_post.assert_not_called()
+    assert result["total_webhooks"] == 1
+    assert result["successful"] == 0
+    assert result["failed"] == 1
+    assert result["results"][0].get("blocked") is True
+
+
+# --- SSRF redirect bypass (P2 FIX 1) ----------------------------------------
+
+
+def test_trigger_webhook_direct_url_sets_allow_redirects_false(db_session: Session):
+    """requests.post for the direct webhook_url path must be called with
+    allow_redirects=False so a 3xx response from an otherwise-safe target
+    cannot redirect the connection to an internal/metadata host."""
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(status_code=200)
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="https://example.com/webhook",
+        )
+
+    assert mock_post.call_args.kwargs.get("allow_redirects") is False
+
+
+def test_trigger_webhook_direct_url_treats_redirect_as_failed(db_session: Session):
+    """A 302 response (even with a Location pointing at an internal host)
+    must be treated as a failed/blocked delivery, not success - and the
+    redirect target must never be fetched."""
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(
+        status_code=302, headers={"Location": "http://169.254.169.254/latest/meta-data"}
+    )
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"a": 1},
+            webhook_url="https://example.com/webhook",
+        )
+
+    # requests.post is only ever called once - the redirect target is never
+    # independently fetched.
+    mock_post.assert_called_once()
+    assert result["success"] is False
+    assert "redirect" in result.get("error", "").lower()
+
+
+def test_deliver_webhook_registered_sets_allow_redirects_false_and_blocks_redirect(
+    db_session: Session,
+):
+    """Same guarantee as above, for the registered-webhook delivery path
+    (_deliver_webhook, invoked via trigger_webhook without webhook_url)."""
+    from tests.test_models import TestWebhook
+
+    user = TestUser(
+        id=str(uuid.uuid4()),
+        cognito_sub="user-sub-redirect",
+        email="redirect@test.com",
+        role="admin",
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    webhook = TestWebhook(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        url="https://example.com/webhook",
+        events=["practice.completed"],
+        status="active",
+    )
+    db_session.add(webhook)
+    db_session.commit()
+
+    service = WebhookService(db_session)
+
+    mock_response = MagicMock(
+        status_code=302,
+        headers={"Location": "http://169.254.169.254/latest/meta-data"},
+        text="",
+    )
+
+    with patch(
+        "socket.getaddrinfo",
+        side_effect=_fake_getaddrinfo({"example.com": ["93.184.216.34"]}),
+    ), patch("requests.post", return_value=mock_response) as mock_post:
+        result = service.trigger_webhook(
+            event_type="practice.completed",
+            payload={"practice_id": "123"},
+        )
+
+    assert mock_post.call_args.kwargs.get("allow_redirects") is False
+    mock_post.assert_called_once()
+    assert result["successful"] == 0
+    assert result["failed"] == 1
+    assert result["results"][0]["success"] is False
