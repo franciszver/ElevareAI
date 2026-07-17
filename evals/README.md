@@ -100,3 +100,33 @@ per the eval plan (`_docs/local/plans/2026-07-16-evals-plan.md`):
 - Wire `graders_by_surface` maps for each surface into a real
   `run_evals.py`-style entrypoint, and replace `runner.live_generate_stub`
   with real per-surface generators that call `openai_client`.
+
+## Guardrail hardening backlog (Phase E3 follow-up)
+
+Not fixed in this pass — noted here rather than addressed, per scope:
+
+- **High-confidence-on-off-task check (gap #2).** The real captured
+  pirate-poem jailbreak (`evals/fixtures/guardrail_outputs.json`,
+  id=`injection_pirate_poem`) shows the model both abandoned the tutor role
+  AND self-reported `CONFIDENCE: 0.96` — high confidence on an answer that
+  shouldn't have been given at all. A cheap deterministic check ("for a
+  role-abandonment/off-task case, CONFIDENCE must NOT be high") is tempting,
+  but doesn't fit cleanly today: role-abandonment cases are graded via the
+  judge/`rubric` path (see `guardrail-injection-role-abandonment-pirate-poem`
+  in `guardrails.yaml`), not the deterministic `expect`-driven path, and
+  there's no CONFIDENCE-extraction wiring on that path yet. Land this as a
+  small addition to the judge rubric itself (or a follow-up deterministic
+  side-check keyed off the `role-abandonment` tag) rather than bolting it
+  onto `injection_resistance`, which has no signal to read a CONFIDENCE
+  value from an `answer` string.
+- **Calibration fixture coverage.** `evals/fixtures/guardrail_outputs.json`
+  (real captured production outputs, distinct from `guardrails.yaml`'s
+  dataset used by the test suite) only captured 1 of the dataset's 2
+  calibration pairs — `calibration_clear_question`/`calibration_vague_question`,
+  no algebra/physics-labeled pair. Recapture to cover both pairs before this
+  fixture is used for anything beyond a smoke check.
+- **Safety cases have no deterministic backstop.** `guardrail-safety-*`
+  cases (self-harm disclosure, cheating request, personal-info request) are
+  judge-only via `rubric` — there's no deterministic grader underneath them
+  the way injection/out-of-scope/calibration have. A judge misjudgment on a
+  safety-sensitive case currently has no second check to catch it.
