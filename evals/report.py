@@ -10,10 +10,13 @@ are tallied separately as `ungraded_count` and excluded from
 `build_judge_report`/`render_markdown_with_judge` alongside this for the
 LLM-judge quality dimension (see `evals/judge.py`) — deterministic pass-rate
 and judge mean-score are kept as two separate dimensions, never blended.
-E4 will extend `build_report` with latency/token stats and a baseline-delta
-comparison; kept simple here on purpose.
+E4 adds `build_perf_report`/`render_perf_markdown` alongside this for the
+cost/latency dimension (latency p50/p95, mean tokens, truncation counts) —
+again a separate dimension, sourced from `CaseResult.latency_s`/`tokens`/
+`finish_reason` rather than blended into pass_rate/mean_score.
 """
 
+import math
 from typing import Dict, List, Optional
 
 from evals.judge import JudgeResult
@@ -104,6 +107,69 @@ def render_markdown(report: Dict[str, Dict[str, Optional[float]]]) -> str:
         )
     lines.append("")
     lines.append(f"Ungraded cases (no grader registered): {total_ungraded}")
+    return "\n".join(lines)
+
+
+def percentile(values: List[float], pct: float) -> float:
+    """Nearest-rank percentile (`pct` in [0, 100]) over `values` (need not be
+    pre-sorted). Returns 0.0 for an empty list. Nearest-rank is used (rather
+    than interpolation) so the result is always an observed value from the
+    input, which is easier to reason about for a small eval suite."""
+    if not values:
+        return 0.0
+    sorted_values = sorted(values)
+    n = len(sorted_values)
+    idx = math.ceil(pct / 100 * n) - 1
+    idx = max(0, min(idx, n - 1))
+    return sorted_values[idx]
+
+
+def build_perf_report(
+    results: List[CaseResult],
+) -> Dict[str, Dict[str, Optional[float]]]:
+    """Aggregate CaseResults per surface into cost/latency stats: count,
+    latency_p50_s, latency_p95_s, mean_tokens, truncated_count (completions
+    with finish_reason=="length"). Latency is aggregated over ALL cases in
+    the surface regardless of grading applicability (latency is a fact about
+    the call, not the grade); `mean_tokens` is averaged only over cases with
+    a known token count (`tokens` is None for the live run_cases path, which
+    doesn't capture it today, and for fixture records that don't carry it)."""
+    by_surface: Dict[str, List[CaseResult]] = {}
+    for result in results:
+        by_surface.setdefault(result.surface, []).append(result)
+
+    report: Dict[str, Dict[str, Optional[float]]] = {}
+    for surface, surface_results in by_surface.items():
+        latencies = [r.latency_s for r in surface_results]
+        token_counts = [r.tokens for r in surface_results if r.tokens is not None]
+        truncated_count = sum(1 for r in surface_results if r.finish_reason == "length")
+        report[surface] = {
+            "count": len(surface_results),
+            "latency_p50_s": percentile(latencies, 50),
+            "latency_p95_s": percentile(latencies, 95),
+            "mean_tokens": (
+                sum(token_counts) / len(token_counts) if token_counts else None
+            ),
+            "truncated_count": truncated_count,
+        }
+    return report
+
+
+def render_perf_markdown(perf_report: Dict[str, Dict[str, Optional[float]]]) -> str:
+    """Render `build_perf_report`'s output as a small markdown table."""
+    lines = [
+        "| Surface | Count | Latency p50 (s) | Latency p95 (s) | Mean Tokens | Truncated |",
+        "|---|---|---|---|---|---|",
+    ]
+    for surface in sorted(perf_report):
+        stats = perf_report[surface]
+        mean_tokens = (
+            f"{stats['mean_tokens']:.0f}" if stats["mean_tokens"] is not None else "N/A"
+        )
+        lines.append(
+            f"| {surface} | {stats['count']} | {stats['latency_p50_s']:.3f} | "
+            f"{stats['latency_p95_s']:.3f} | {mean_tokens} | {stats['truncated_count']} |"
+        )
     return "\n".join(lines)
 
 

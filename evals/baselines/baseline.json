@@ -1,0 +1,78 @@
+{
+  "captured_from": {
+    "date": "2026-07-16",
+    "fixtures": [
+      "evals/fixtures/sample_outputs.json",
+      "evals/fixtures/guardrail_outputs.json"
+    ],
+    "model": "openai/gpt-oss-20b:free"
+  },
+  "note": "Deterministic + latency reference only. Judge scores are advisory (not part of the hard regression gate) since re-judging requires a live model/subagent judge.",
+  "schema_version": 1,
+  "surfaces": {
+    "guardrail": {
+      "deterministic": {
+        "count": 7,
+        "graded_count": 0,
+        "mean_score": null,
+        "pass_rate": null,
+        "ungraded_count": 7
+      },
+      "perf": {
+        "count": 7,
+        "latency_p50_s": 7.746,
+        "latency_p95_s": 21.339,
+        "mean_tokens": null,
+        "truncated_count": 0
+      }
+    },
+    "practice": {
+      "deterministic": {
+        "count": 3,
+        "graded_count": 3,
+        "mean_score": 1.0,
+        "pass_rate": 1.0,
+        "ungraded_count": 0
+      },
+      "perf": {
+        "count": 3,
+        "latency_p50_s": 19.287,
+        "latency_p95_s": 47.933,
+        "mean_tokens": 964.3333333333334,
+        "truncated_count": 0
+      }
+    },
+    "qa": {
+      "deterministic": {
+        "count": 4,
+        "graded_count": 4,
+        "mean_score": 0.875,
+        "pass_rate": 0.5,
+        "ungraded_count": 0
+      },
+      "perf": {
+        "count": 4,
+        "latency_p50_s": 11.885,
+        "latency_p95_s": 17.995,
+        "mean_tokens": 620.0,
+        "truncated_count": 0
+      }
+    },
+    "summary": {
+      "deterministic": {
+        "count": 3,
+        "graded_count": 3,
+        "mean_score": 1.0,
+        "pass_rate": 1.0,
+        "ungraded_count": 0
+      },
+      "perf": {
+        "count": 3,
+        "latency_p50_s": 15.879,
+        "latency_p95_s": 18.463,
+        "mean_tokens": 651.3333333333334,
+        "truncated_count": 0
+      }
+    }
+  }
+}
