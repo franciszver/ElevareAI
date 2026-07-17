@@ -4,6 +4,7 @@ Generates AI summaries from tutoring session transcripts
 """
 
 import logging
+import re
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -71,14 +72,14 @@ class SessionSummarizer:
                     "next steps" in ai_response.lower()
                     or "next:" in ai_response.lower()
                 ):
-                    parts = ai_response.split("next steps:", 1) or ai_response.split(
-                        "next:", 1
+                    parts = re.split(
+                        r"next steps:", ai_response, maxsplit=1, flags=re.IGNORECASE
+                    ) or re.split(
+                        r"next:", ai_response, maxsplit=1, flags=re.IGNORECASE
                     )
                     narrative = parts[0].strip()
                     steps_text = parts[1].strip() if len(parts) > 1 else ""
                     # Extract steps (numbered or bulleted)
-                    import re
-
                     steps = (
                         re.findall(r"[-•*]\s*(.+?)(?=\n|$)", steps_text)
                         or re.findall(r"\d+\.\s*(.+?)(?=\n|$)", steps_text)

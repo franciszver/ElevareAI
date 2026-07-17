@@ -6,7 +6,6 @@ Tests for parent and admin dashboard functionality
 import uuid
 from datetime import datetime, timedelta
 
-import pytest
 from sqlalchemy.orm import Session
 
 from src.services.analytics.aggregator import AnalyticsAggregator
@@ -24,10 +23,6 @@ from tests.test_models import (
 )
 
 
-@pytest.mark.xfail(
-    reason="AnalyticsAggregator.get_student_progress_summary omits the 'gamification' key from the summary dict (User.gamification column exists) — small regression, backlogged",
-    strict=False,
-)
 def test_get_student_progress_summary(db_session: Session):
     """Test getting student progress summary"""
     student = TestUser(
