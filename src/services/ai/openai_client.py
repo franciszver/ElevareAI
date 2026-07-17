@@ -15,7 +15,9 @@ class OpenAIClient:
 
     def __init__(self):
         self.client = openai.OpenAI(
-            api_key=settings.openrouter_api_key, base_url=settings.openrouter_base_url
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
+            timeout=settings.openrouter_timeout,
         )
         self.model = settings.openrouter_model
         self.temperature = settings.openrouter_temperature

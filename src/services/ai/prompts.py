@@ -131,29 +131,35 @@ Provide a JSON response with:
             else "No specific context available."
         )
 
+        conciseness_guidance = """Keep your answer concise — aim for under ~250 words. Use plain text; avoid LaTeX delimiters like \\( \\) or \\[ \\] and heavy formatting. Get to the point."""
+
         # Build system message based on query type
         if is_out_of_scope:
-            system_message = """You are an AI study companion helping students with educational topics. 
-The student's query appears to be outside the scope of educational assistance. 
-Politely redirect them to educational topics and explain that you're designed to help with academic subjects."""
+            system_message = f"""You are an AI study companion helping students with educational topics.
+The student's query appears to be outside the scope of educational assistance.
+Politely redirect them to educational topics and explain that you're designed to help with academic subjects.
+{conciseness_guidance}"""
         elif is_ambiguous:
-            system_message = """You are an AI study companion helping students between tutoring sessions. 
+            system_message = f"""You are an AI study companion helping students between tutoring sessions.
 The student's query is ambiguous and lacks context. Ask for clarification by:
 1. Suggesting likely topics based on their recent sessions
 2. Asking which specific concept they need help with
-3. Being encouraging and helpful"""
+3. Being encouraging and helpful
+{conciseness_guidance}"""
         elif is_multi_part:
-            system_message = """You are an AI study companion helping students between tutoring sessions. 
+            system_message = f"""You are an AI study companion helping students between tutoring sessions.
 The student's query contains multiple questions. Answer each part clearly and separately.
-Format your response with clear sections for each question."""
+Format your response with clear sections for each question.
+{conciseness_guidance}"""
         else:
-            system_message = """You are an AI study companion helping students between tutoring sessions. 
+            system_message = f"""You are an AI study companion helping students between tutoring sessions.
 Your role is to:
 1. Provide clear, educational answers
 2. Explain concepts in a way appropriate for students
 3. If you're unsure or the topic is advanced, acknowledge limitations
 4. Suggest consulting with their tutor for complex topics
-5. Be encouraging and supportive"""
+5. Be encouraging and supportive
+{conciseness_guidance}"""
 
         # Build user message
         if is_multi_part and query_parts:
