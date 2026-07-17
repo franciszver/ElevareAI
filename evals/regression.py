@@ -35,7 +35,6 @@ class RegressionResult:
 
 
 def _compare_surface(
-    surface: str,
     current_stats: Dict[str, Any],
     current_perf: Dict[str, Any],
     baseline_stats: Dict[str, Any],
@@ -121,7 +120,6 @@ def compare_to_baseline(
             continue
 
         surfaces[surface] = _compare_surface(
-            surface,
             current_report.get(surface, {}),
             current_perf_report.get(surface, {}),
             baseline_surfaces[surface].get("deterministic", {}),
@@ -150,8 +148,7 @@ def render_regression_markdown(result: RegressionResult) -> str:
         status = "REGRESSED" if s.regressed else "ok"
         lines.append(f"| {surface} | {delta} | {ratio} | {status} |")
 
-    regressed_surfaces = [s for s in result.surfaces.values() if s.regressed]
-    if regressed_surfaces:
+    if result.regressed:
         lines.append("")
         lines.append("### Reasons")
         for surface in sorted(result.surfaces):

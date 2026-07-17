@@ -24,7 +24,7 @@ from typing import Any, Dict, List
 from evals.grade_fixtures import (
     DEFAULT_FIXTURES,
     GUARDRAIL_FIXTURES,
-    grade_fixture_file,
+    grade_fixture_files,
 )
 from evals.report import build_perf_report, build_report
 
@@ -51,9 +51,7 @@ def build_baseline(
         fixtures if fixtures is not None else [DEFAULT_FIXTURES, GUARDRAIL_FIXTURES]
     )
 
-    results = []
-    for fixture_path in fixtures:
-        results.extend(grade_fixture_file(fixture_path))
+    results = grade_fixture_files(fixtures)
 
     report = build_report(results)
     perf_report = build_perf_report(results)

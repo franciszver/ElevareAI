@@ -175,21 +175,39 @@ def to_case_result(
     )
 
 
-def grade_fixture_file(path: Path) -> List[CaseResult]:
+def grade_fixture_file(
+    path: Path,
+) -> Tuple[List[CaseResult], List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
     """Load, case-map, and grade every record in a fixture file, returning
-    `CaseResult`s with latency_s/tokens/finish_reason threaded through. The
-    reusable entry point `evals/run_eval.py` uses to grade both
-    `sample_outputs.json` and `guardrail_outputs.json` offline."""
+    `(results, records, breakdowns_by_id)` - `results` are `CaseResult`s with
+    latency_s/tokens/finish_reason threaded through; `records`/`breakdowns_by_id`
+    are exposed for callers (e.g. `main()`'s per-case table) that need the raw
+    grading breakdown, not just the aggregate. The reusable entry point
+    `evals/run_eval.py` uses to grade both `sample_outputs.json` and
+    `guardrail_outputs.json` offline."""
     records = load_fixture_records(path)
     cases = [record_to_case(record) for record in records]
     records_by_id = {record["id"]: record for record in records}
     breakdowns_by_id = {
         case.id: grade_case(case, records_by_id[case.id]["output"]) for case in cases
     }
-    return [
+    results = [
         to_case_result(case, breakdowns_by_id[case.id], records_by_id[case.id])
         for case in cases
     ]
+    return results, records, breakdowns_by_id
+
+
+def grade_fixture_files(paths: List[Path]) -> List[CaseResult]:
+    """Grade multiple fixture files and concatenate their `CaseResult`s.
+    Shared by `evals/run_eval.py::grade_all_fixtures` and
+    `evals/baselines/__init__.py::build_baseline`, which both need only the
+    aggregate results, not the per-file records/breakdowns."""
+    results: List[CaseResult] = []
+    for path in paths:
+        case_results, _, _ = grade_fixture_file(path)
+        results.extend(case_results)
+    return results
 
 
 def render_per_case_table(
@@ -228,18 +246,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    records = load_fixture_records(args.fixtures)
-    cases = [record_to_case(record) for record in records]
-
-    breakdowns_by_id = {
-        case.id: grade_case(case, record["output"])
-        for case, record in zip(cases, records)
-    }
-    records_by_id = {record["id"]: record for record in records}
-    results = [
-        to_case_result(case, breakdowns_by_id[case.id], records_by_id[case.id])
-        for case in cases
-    ]
+    results, records, breakdowns_by_id = grade_fixture_file(args.fixtures)
 
     print(f"Graded {len(records)} captured case(s) from {args.fixtures}\n")
     print("## Per-Case Results\n")

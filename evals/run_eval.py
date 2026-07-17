@@ -20,7 +20,7 @@ from evals.baselines import BASELINE_PATH, load_baseline, snapshot_baseline
 from evals.grade_fixtures import (
     DEFAULT_FIXTURES,
     GUARDRAIL_FIXTURES,
-    grade_fixture_file,
+    grade_fixture_files,
 )
 from evals.regression import compare_to_baseline, render_regression_markdown
 from evals.report import (
@@ -34,10 +34,7 @@ FIXTURES = [DEFAULT_FIXTURES, GUARDRAIL_FIXTURES]
 
 
 def grade_all_fixtures():
-    results = []
-    for fixture_path in FIXTURES:
-        results.extend(grade_fixture_file(fixture_path))
-    return results
+    return grade_fixture_files(FIXTURES)
 
 
 def main() -> int:
