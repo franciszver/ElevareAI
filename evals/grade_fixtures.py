@@ -31,12 +31,62 @@ from evals.runner import CaseResult, _call_grader, aggregate_grades
 from evals.schema import Case
 
 DEFAULT_FIXTURES = Path(__file__).parent / "fixtures" / "sample_outputs.json"
+GUARDRAIL_FIXTURES = Path(__file__).parent / "fixtures" / "guardrail_outputs.json"
 
 
 def load_fixture_records(path: Path) -> List[Dict[str, Any]]:
+    """Load a captured-outputs fixture file and normalize its records to a
+    common shape: {id, surface, input, output, latency_s, tokens
+    (Optional[int], total_tokens), finish_reason}.
+
+    Two on-disk formats are supported:
+      - `sample_outputs.json`-style: top-level "captured_calls" list, each
+        record already carrying surface/input/output/tokens (a
+        {prompt_tokens, completion_tokens, total_tokens} dict).
+      - `guardrail_outputs.json`-style: top-level "cases" list (no explicit
+        surface -> normalized to "guardrail"; "input_prompt"/"raw_output"
+        instead of "input"/"output"; no per-record token counts captured).
+    """
     with path.open(encoding="utf-8") as f:
         data = json.load(f)
-    return data["captured_calls"]
+
+    if "captured_calls" in data:
+        records = []
+        for r in data["captured_calls"]:
+            tokens = r.get("tokens") or {}
+            records.append(
+                {
+                    "id": r["id"],
+                    "surface": r["surface"],
+                    "input": r["input"],
+                    "output": r["output"],
+                    "latency_s": r.get("latency_s", 0.0),
+                    "tokens": tokens.get("total_tokens"),
+                    "finish_reason": r.get("finish_reason"),
+                }
+            )
+        return records
+
+    if "cases" in data:
+        records = []
+        for r in data["cases"]:
+            records.append(
+                {
+                    "id": r["id"],
+                    "surface": "guardrail",
+                    "input": {"query": r.get("input_prompt", "")},
+                    "output": r.get("raw_output", ""),
+                    "latency_s": r.get("latency_s", 0.0),
+                    "tokens": r.get("tokens"),
+                    "finish_reason": r.get("finish_reason"),
+                }
+            )
+        return records
+
+    raise ValueError(
+        f"Unrecognized fixture format in {path}: expected a top-level "
+        "'captured_calls' or 'cases' key"
+    )
 
 
 def record_to_case(record: Dict[str, Any]) -> Case:
@@ -92,10 +142,15 @@ def _split_applicable(
     return applicable, na
 
 
-def to_case_result(case: Case, breakdown: List[Dict[str, Any]]) -> CaseResult:
+def to_case_result(
+    case: Case, breakdown: List[Dict[str, Any]], record: Dict[str, Any]
+) -> CaseResult:
     """Aggregate a grade_case breakdown into a CaseResult via the same
     `aggregate_grades` helper `evals/runner.py::run_cases` uses, so both
-    aggregation paths share one notion of "not applicable"."""
+    aggregation paths share one notion of "not applicable". Threads the
+    fixture record's captured latency_s/tokens/finish_reason through so
+    `evals/report.py::build_perf_report` has real cost/latency data (E4) -
+    previously hardcoded to latency_s=0.0 with no tokens/finish_reason."""
     grades = [
         GradeResult(
             passed=g["passed"],
@@ -112,10 +167,47 @@ def to_case_result(case: Case, breakdown: List[Dict[str, Any]]) -> CaseResult:
         passed=passed,
         score=score,
         detail=detail,
-        latency_s=0.0,
+        latency_s=record.get("latency_s", 0.0),
+        tokens=record.get("tokens"),
         graded=bool(breakdown),
         applicable=applicable,
+        finish_reason=record.get("finish_reason"),
     )
+
+
+def grade_fixture_file(
+    path: Path,
+) -> Tuple[List[CaseResult], List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    """Load, case-map, and grade every record in a fixture file, returning
+    `(results, records, breakdowns_by_id)` - `results` are `CaseResult`s with
+    latency_s/tokens/finish_reason threaded through; `records`/`breakdowns_by_id`
+    are exposed for callers (e.g. `main()`'s per-case table) that need the raw
+    grading breakdown, not just the aggregate. The reusable entry point
+    `evals/run_eval.py` uses to grade both `sample_outputs.json` and
+    `guardrail_outputs.json` offline."""
+    records = load_fixture_records(path)
+    cases = [record_to_case(record) for record in records]
+    records_by_id = {record["id"]: record for record in records}
+    breakdowns_by_id = {
+        case.id: grade_case(case, records_by_id[case.id]["output"]) for case in cases
+    }
+    results = [
+        to_case_result(case, breakdowns_by_id[case.id], records_by_id[case.id])
+        for case in cases
+    ]
+    return results, records, breakdowns_by_id
+
+
+def grade_fixture_files(paths: List[Path]) -> List[CaseResult]:
+    """Grade multiple fixture files and concatenate their `CaseResult`s.
+    Shared by `evals/run_eval.py::grade_all_fixtures` and
+    `evals/baselines/__init__.py::build_baseline`, which both need only the
+    aggregate results, not the per-file records/breakdowns."""
+    results: List[CaseResult] = []
+    for path in paths:
+        case_results, _, _ = grade_fixture_file(path)
+        results.extend(case_results)
+    return results
 
 
 def render_per_case_table(
@@ -154,14 +246,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    records = load_fixture_records(args.fixtures)
-    cases = [record_to_case(record) for record in records]
-
-    breakdowns_by_id = {
-        case.id: grade_case(case, record["output"])
-        for case, record in zip(cases, records)
-    }
-    results = [to_case_result(case, breakdowns_by_id[case.id]) for case in cases]
+    results, records, breakdowns_by_id = grade_fixture_file(args.fixtures)
 
     print(f"Graded {len(records)} captured case(s) from {args.fixtures}\n")
     print("## Per-Case Results\n")

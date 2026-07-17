@@ -65,6 +65,9 @@ class CaseResult:
     # GradeResult was applicable=False). Excluded from build_report's
     # pass-rate/mean-score, same as grade_fixtures.py's aggregation.
     applicable: bool = True
+    # "length" flags a truncated completion (E4 perf reporting). None when
+    # unknown (e.g. the live run_cases path below doesn't capture it today).
+    finish_reason: Optional[str] = None
 
 
 def aggregate_grades(
