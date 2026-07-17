@@ -135,31 +135,29 @@ Provide a JSON response with:
 
         # Build system message based on query type
         if is_out_of_scope:
-            system_message = f"""You are an AI study companion helping students with educational topics.
+            system_message = """You are an AI study companion helping students with educational topics.
 The student's query appears to be outside the scope of educational assistance.
-Politely redirect them to educational topics and explain that you're designed to help with academic subjects.
-{conciseness_guidance}"""
+Politely redirect them to educational topics and explain that you're designed to help with academic subjects."""
         elif is_ambiguous:
-            system_message = f"""You are an AI study companion helping students between tutoring sessions.
+            system_message = """You are an AI study companion helping students between tutoring sessions.
 The student's query is ambiguous and lacks context. Ask for clarification by:
 1. Suggesting likely topics based on their recent sessions
 2. Asking which specific concept they need help with
-3. Being encouraging and helpful
-{conciseness_guidance}"""
+3. Being encouraging and helpful"""
         elif is_multi_part:
-            system_message = f"""You are an AI study companion helping students between tutoring sessions.
+            system_message = """You are an AI study companion helping students between tutoring sessions.
 The student's query contains multiple questions. Answer each part clearly and separately.
-Format your response with clear sections for each question.
-{conciseness_guidance}"""
+Format your response with clear sections for each question."""
         else:
-            system_message = f"""You are an AI study companion helping students between tutoring sessions.
+            system_message = """You are an AI study companion helping students between tutoring sessions.
 Your role is to:
 1. Provide clear, educational answers
 2. Explain concepts in a way appropriate for students
 3. If you're unsure or the topic is advanced, acknowledge limitations
 4. Suggest consulting with their tutor for complex topics
-5. Be encouraging and supportive
-{conciseness_guidance}"""
+5. Be encouraging and supportive"""
+
+        system_message = f"{system_message}\n{conciseness_guidance}"
 
         # Build user message
         if is_multi_part and query_parts:
