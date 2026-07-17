@@ -21,6 +21,7 @@ E1 graders.
 import inspect
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Union
 
 from evals.graders.deterministic import GradeResult
@@ -30,14 +31,21 @@ GenerateFn = Callable[[Case], str]
 GraderFn = Union[Callable[[str], GradeResult], Callable[[str, Case], GradeResult]]
 
 
+@lru_cache(maxsize=None)
+def _grader_arity(grader: GraderFn) -> int:
+    """A grader function's parameter count never changes between calls, so
+    this is cached rather than re-derived via `inspect.signature` for every
+    (case, grader) pair `_call_grader` is invoked on."""
+    try:
+        return len(inspect.signature(grader).parameters)
+    except (TypeError, ValueError):
+        return 1
+
+
 def _call_grader(grader: GraderFn, output: str, case: Case) -> GradeResult:
     """Call `grader` with `(output, case)` if it accepts 2+ params, else the
     original E0 `(output)` form, so old single-arg graders keep working."""
-    try:
-        n_params = len(inspect.signature(grader).parameters)
-    except (TypeError, ValueError):
-        n_params = 1
-    if n_params >= 2:
+    if _grader_arity(grader) >= 2:
         return grader(output, case)
     return grader(output)
 

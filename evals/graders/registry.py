@@ -25,7 +25,8 @@ a grading failure with a clear detail message rather than raising.
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from functools import lru_cache
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from evals.graders import deterministic as det
 from evals.schema import Case
@@ -33,11 +34,17 @@ from evals.schema import Case
 GraderFn = Any  # Callable[[str], GradeResult] | Callable[[str, Case], GradeResult]
 
 
+@lru_cache(maxsize=128)
 def _parse_json_object(
     output: str,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[det.GradeResult]]:
     """Parse `output` as a JSON object. Returns (item, None) on success, or
-    (None, failing GradeResult) if `output` isn't valid JSON / not an object."""
+    (None, failing GradeResult) if `output` isn't valid JSON / not an object.
+
+    Cached: the 3 `_on_parsed_item`-wrapped graders plus the math
+    ground-truth adapter all call this with the same output string per
+    practice case, so caching avoids re-parsing identical JSON repeatedly
+    within a grading pass."""
     try:
         item = json.loads(output)
     except json.JSONDecodeError as e:
@@ -51,11 +58,15 @@ def _parse_json_object(
     return item, None
 
 
+@lru_cache(maxsize=128)
 def _summary_like(output: str):
     """A summary case's example output is either a JSON object (an assembled
     summary dict with narrative/next_steps/summary_type) or raw text (an
     unassembled AI response). Try JSON first; fall back to the raw string so
-    `_parse_summary_text`-based graders still work."""
+    `_parse_summary_text`-based graders still work.
+
+    Cached: all 3 summary graders call this with the same output string per
+    case."""
     try:
         parsed = json.loads(output)
     except json.JSONDecodeError:
@@ -99,25 +110,27 @@ def _qa_answer_concise(output: str, case: Case) -> det.GradeResult:
 # ---------------------------------------------------------------------------
 
 
-def _practice_question_quality(output: str, case: Case) -> det.GradeResult:
-    item, error = _parse_json_object(output)
-    if error:
-        return error
-    return det.practice_question_quality(item)
+def _on_parsed_item(
+    grader: Callable[[Dict[str, Any]], det.GradeResult],
+) -> Callable[[str, Case], det.GradeResult]:
+    """Wrap a practice-item grader (which expects a parsed dict) as a
+    `(output, case)` adapter that parses `output` as JSON first, surfacing a
+    parse failure as a grading failure instead of raising."""
+
+    def adapter(output: str, case: Case) -> det.GradeResult:
+        item, error = _parse_json_object(output)
+        if error:
+            return error
+        return grader(item)
+
+    return adapter
 
 
-def _practice_no_placeholder_distractors(output: str, case: Case) -> det.GradeResult:
-    item, error = _parse_json_object(output)
-    if error:
-        return error
-    return det.practice_no_placeholder_distractors(item)
-
-
-def _practice_no_raw_latex(output: str, case: Case) -> det.GradeResult:
-    item, error = _parse_json_object(output)
-    if error:
-        return error
-    return det.practice_no_raw_latex(item)
+_practice_question_quality = _on_parsed_item(det.practice_question_quality)
+_practice_no_placeholder_distractors = _on_parsed_item(
+    det.practice_no_placeholder_distractors
+)
+_practice_no_raw_latex = _on_parsed_item(det.practice_no_raw_latex)
 
 
 def _practice_math_answer_correct_if_applicable(

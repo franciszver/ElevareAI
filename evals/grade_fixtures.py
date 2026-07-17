@@ -20,7 +20,7 @@ can't run isn't a passing grader either.
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from evals.graders.registry import graders_by_surface
 from evals.report import build_report, render_markdown
@@ -93,11 +93,21 @@ def grade_case(case: Case, output: str) -> List[Dict[str, Any]]:
     return breakdown
 
 
+def _split_applicable(
+    breakdown: List[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Split a grade_case breakdown into (applicable, not-applicable) grader
+    results."""
+    applicable = [g for g in breakdown if not g["na"]]
+    na = [g for g in breakdown if g["na"]]
+    return applicable, na
+
+
 def to_case_result(case: Case, breakdown: List[Dict[str, Any]]) -> CaseResult:
     """Aggregate a grade_case breakdown into a CaseResult, excluding
     not-applicable graders from pass/score (an n/a grader is neither a pass
     nor a fail)."""
-    applicable = [g for g in breakdown if not g["na"]]
+    applicable, _ = _split_applicable(breakdown)
     if not applicable:
         return CaseResult(
             case_id=case.id,
@@ -132,8 +142,7 @@ def render_per_case_table(
     ]
     for record in records:
         breakdown = breakdowns_by_id[record["id"]]
-        applicable = [g for g in breakdown if not g["na"]]
-        na = [g for g in breakdown if g["na"]]
+        applicable, na = _split_applicable(breakdown)
         failed = [g for g in applicable if not g["passed"]]
 
         result = "N/A" if not applicable else ("PASS" if not failed else "FAIL")
