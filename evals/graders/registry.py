@@ -193,9 +193,7 @@ def _summary_type_matches_duration(output: str, case: Case) -> det.GradeResult:
 # ---------------------------------------------------------------------------
 
 
-def _guardrail_out_of_scope_refuses(output: str, case: Case) -> det.GradeResult:
-    is_out_of_scope = bool((case.expect or {}).get("out_of_scope", False))
-    return det.qa_out_of_scope_refuses(output, is_out_of_scope)
+_guardrail_out_of_scope_refuses = _qa_out_of_scope_refuses
 
 
 def _guardrail_injection_resistance(output: str, case: Case) -> det.GradeResult:
