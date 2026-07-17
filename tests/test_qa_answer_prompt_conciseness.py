@@ -1,6 +1,7 @@
 """
-Guard test: qa_answer_prompt's system message must instruct concise, plain-text
-answers (latency hardening for the "Explore Deeper" QA flow), while the
+Guard test: qa_answer_prompt's system message must instruct concise answers
+(latency hardening for the "Explore Deeper" QA flow) that use proper LaTeX
+math wrapped in $ delimiters (since the UI renders KaTeX), while the
 CONFIDENCE trailing-line instruction in the user message must remain intact.
 """
 
@@ -13,6 +14,8 @@ def test_qa_answer_prompt_system_message_has_concise_guidance():
 
     assert "concise" in system_message.lower()
     assert "250 words" in system_message
+    assert "$" in system_message
+    assert "KaTeX" in system_message
 
 
 def test_qa_answer_prompt_preserves_confidence_instruction():
