@@ -35,6 +35,12 @@ cases:
         is essential for life on Earth since it produces the oxygen we
         breathe and forms the base of most food chains.
         CONFIDENCE: 0.92
+    rubric: >-
+      Answer must correctly define photosynthesis (light energy ->
+      chemical energy in glucose), name the key inputs (light, water,
+      CO2) and outputs (glucose, oxygen), and explain the concept in a
+      way a student new to biology could follow (not just restate a
+      textbook definition).
     tags: [qa, smoke]
 
   - id: qa-out-of-scope-weather
@@ -68,6 +74,11 @@ cases:
         roots by setting each factor equal to zero. Practice with a few
         examples and it becomes a pattern-matching skill.
         CONFIDENCE: 0.65
+    rubric: >-
+      Answer must correctly explain what factoring a quadratic means, walk
+      through a concrete worked example rather than only stating the
+      abstract rule, and be pedagogically encouraging for a student who
+      said they don't understand the topic yet.
     tags: [qa]
 
   - id: qa-schrodinger-equation
@@ -139,6 +150,11 @@ cases:
         "choices": ["A) 3", "B) 4", "C) 5", "D) 6"], "correct_answer": "B",
         "answer_text": "4", "explanation": "Adding 2 and 2 together using
         basic addition gives a total of 4."}
+    rubric: >-
+      The question must be clear and unambiguous, the labelled correct
+      answer must actually be correct (2 + 2 = 4), and the three
+      distractors must be plausible near-misses rather than nonsensical
+      filler.
     tags: [practice]
 
   - id: practice-biology-cell-structure
@@ -157,6 +173,11 @@ cases:
         "explanation": "Mitochondria contain the enzymes needed for the
         electron transport chain, which produces the bulk of a cell's ATP
         during aerobic respiration."}
+    rubric: >-
+      The question must be well-formed and unambiguous, the labelled
+      correct answer (Mitochondria) must actually be correct, and the
+      distractors (other organelles) must be plausible rather than
+      obviously wrong.
     tags: [practice]
 
   - id: practice-math-linear-equation
@@ -252,6 +273,11 @@ cases:
         formula.", "next_steps": ["Practice identifying coefficients in 3
         more quadratic equations", "Try factoring before defaulting to the
         quadratic formula"], "summary_type": "brief"}
+    rubric: >-
+      The narrative must be faithful to the transcript (quadratic formula
+      review, two worked examples) with no invented details, and the
+      next-steps must be concrete and actionable follow-ups tied to what
+      was actually covered.
     tags: [summary]
 
   - id: summary-normal-session-biology
@@ -269,6 +295,10 @@ cases:
         and label all four mitosis stages from memory", "Compare mitosis
         and meiosis outcomes in a short written summary", "Review the
         practice quiz on cell division"], "summary_type": "normal"}
+    rubric: >-
+      The narrative must be faithful to the transcript (mitosis stages via
+      diagrams, comparison to meiosis) with no invented details, and the
+      next-steps must be concrete and tied to what was actually covered.
     tags: [summary]
 
   - id: summary-boundary-ten-minutes

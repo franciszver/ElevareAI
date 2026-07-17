@@ -109,6 +109,7 @@ class TestQaOutOfScopeRefuses:
             "Photosynthesis converts light into chemical energy.", is_out_of_scope=False
         )
         assert result.passed is True
+        assert result.applicable is False
         assert "not applicable" in result.detail.lower()
 
 
@@ -321,9 +322,13 @@ class TestSummaryTypeMatchesDuration:
         )
         assert result.passed is False
 
-    def test_missing_summary_type_fails(self):
+    def test_missing_summary_type_is_not_applicable(self):
+        """Raw text carries no summary_type field at all - the grader can't
+        judge it either way, so it reports not-applicable rather than a
+        genuine failure (excluded from pass-rate, not counted against it)."""
         result = det.summary_type_matches_duration("raw text only", duration_min=5)
-        assert result.passed is False
+        assert result.passed is True
+        assert result.applicable is False
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +345,7 @@ class TestRegistryAdapters:
         case = _case("qa", expect={"out_of_scope": True})
         result = confidence_adapter("no confidence line here", case)
         assert result.passed is True
+        assert result.applicable is False
         assert "not applicable" in result.detail.lower()
 
     def test_qa_confidence_enforced_when_in_scope(self):
@@ -353,6 +359,7 @@ class TestRegistryAdapters:
         case = _case("practice", expect={})
         result = math_adapter(json.dumps(GOOD_PRACTICE_ITEM), case)
         assert result.passed is True
+        assert result.applicable is False
         assert "not applicable" in result.detail.lower()
 
     def test_practice_math_applies_when_seed_present(self):

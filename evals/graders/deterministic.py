@@ -53,6 +53,11 @@ class GradeResult:
     passed: bool
     score: float
     detail: str
+    # False marks this grader as not-applicable to the given case/output
+    # (e.g. a QA out-of-scope check on an in-scope case) rather than a real
+    # pass/fail. `evals/runner.py::run_cases` and `evals/grade_fixtures.py`
+    # both exclude applicable=False results from pass-rate/mean-score.
+    applicable: bool = True
 
 
 def confidence_line_present(answer: str) -> GradeResult:
@@ -174,6 +179,7 @@ def qa_out_of_scope_refuses(answer: str, is_out_of_scope: bool) -> GradeResult:
             passed=True,
             score=1.0,
             detail="Not applicable: case is not tagged out-of-scope",
+            applicable=False,
         )
     if _QA_OUT_OF_SCOPE_MARKER.lower() in (answer or "").lower():
         return GradeResult(
@@ -480,9 +486,10 @@ def summary_type_matches_duration(
     `summary_type` key - raw text alone doesn't carry this field."""
     if not isinstance(summary, dict) or "summary_type" not in summary:
         return GradeResult(
-            passed=False,
-            score=0.0,
-            detail="summary_type not available (requires an assembled summary dict)",
+            passed=True,
+            score=1.0,
+            detail="Not applicable: summary_type not available (requires an assembled summary dict)",
+            applicable=False,
         )
     expected = "brief" if duration_min < 10 else "normal"
     actual = summary.get("summary_type")

@@ -87,6 +87,7 @@ def _qa_confidence_line_if_applicable(output: str, case: Case) -> det.GradeResul
             passed=True,
             score=1.0,
             detail="Not applicable: out-of-scope refusal has no CONFIDENCE line by design",
+            applicable=False,
         )
     return det.confidence_line_present(output)
 
@@ -144,6 +145,7 @@ def _practice_math_answer_correct_if_applicable(
             passed=True,
             score=1.0,
             detail="Not applicable: case has no math_topic/seed in expect",
+            applicable=False,
         )
     item, error = _parse_json_object(output)
     if error:

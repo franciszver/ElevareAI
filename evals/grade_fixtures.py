@@ -12,9 +12,11 @@ not-applicable) plus an aggregate report via `evals.report`.
 Some graders need per-case data a raw captured completion doesn't carry
 (e.g. practice math ground-truth needs `seed`/`math_topic`; summary's
 `summary_type` is assigned by post-processing code, not present in the raw
-AI text this fixture captures). Those are marked not-applicable ("n/a") and
-excluded from pass/score, rather than counted as failures - a grader that
-can't run isn't a passing grader either.
+AI text this fixture captures). Those graders report `GradeResult.applicable
+=False` (see `evals/graders/deterministic.py`) and are excluded from
+pass/score by `evals/runner.py::aggregate_grades` - the same shared
+aggregation `run_cases` uses - rather than counted as failures: a grader
+that can't apply isn't a passing grader either.
 """
 
 import argparse
@@ -22,27 +24,13 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from evals.graders.deterministic import GradeResult
 from evals.graders.registry import graders_by_surface
 from evals.report import build_report, render_markdown
-from evals.runner import CaseResult, _call_grader
+from evals.runner import CaseResult, _call_grader, aggregate_grades
 from evals.schema import Case
 
 DEFAULT_FIXTURES = Path(__file__).parent / "fixtures" / "sample_outputs.json"
-
-# Detail substrings that mark a grader result as structurally not-applicable
-# to a *captured* output, rather than a genuine pass or fail:
-#   - "not applicable" - the registry adapters' own convention (e.g. QA's
-#     out-of-scope-refusal check on an in-scope case, practice math ground
-#     truth with no seed/math_topic recorded).
-#   - "requires an assembled summary dict" - summary_type is assigned by
-#     post-generation application code, not present in the raw AI text these
-#     fixtures capture, so this grader can never apply to a captured output.
-_NOT_APPLICABLE_MARKERS = ("not applicable", "requires an assembled summary dict")
-
-
-def _is_not_applicable(detail: str) -> bool:
-    lowered = detail.lower()
-    return any(marker in lowered for marker in _NOT_APPLICABLE_MARKERS)
 
 
 def load_fixture_records(path: Path) -> List[Dict[str, Any]]:
@@ -77,7 +65,8 @@ def record_to_case(record: Dict[str, Any]) -> Case:
 
 def grade_case(case: Case, output: str) -> List[Dict[str, Any]]:
     """Run each grader registered for `case.surface` individually against
-    `output`, tagging each result as applicable/not-applicable."""
+    `output`, tagging each result as applicable/not-applicable via the
+    grader's own `GradeResult.applicable` field."""
     breakdown = []
     for grader in graders_by_surface.get(case.surface, []):
         result = _call_grader(grader, output, case)
@@ -87,7 +76,7 @@ def grade_case(case: Case, output: str) -> List[Dict[str, Any]]:
                 "passed": result.passed,
                 "score": result.score,
                 "detail": result.detail,
-                "na": _is_not_applicable(result.detail),
+                "na": not result.applicable,
             }
         )
     return breakdown
@@ -104,23 +93,19 @@ def _split_applicable(
 
 
 def to_case_result(case: Case, breakdown: List[Dict[str, Any]]) -> CaseResult:
-    """Aggregate a grade_case breakdown into a CaseResult, excluding
-    not-applicable graders from pass/score (an n/a grader is neither a pass
-    nor a fail)."""
-    applicable, _ = _split_applicable(breakdown)
-    if not applicable:
-        return CaseResult(
-            case_id=case.id,
-            surface=case.surface,
-            passed=None,
-            score=0.0,
-            detail="No applicable graders for this captured output",
-            latency_s=0.0,
-            graded=False,
+    """Aggregate a grade_case breakdown into a CaseResult via the same
+    `aggregate_grades` helper `evals/runner.py::run_cases` uses, so both
+    aggregation paths share one notion of "not applicable"."""
+    grades = [
+        GradeResult(
+            passed=g["passed"],
+            score=g["score"],
+            detail=g["detail"],
+            applicable=not g["na"],
         )
-    passed = all(g["passed"] for g in applicable)
-    score = sum(g["score"] for g in applicable) / len(applicable)
-    detail = "; ".join(g["detail"] for g in applicable)
+        for g in breakdown
+    ]
+    passed, score, detail, applicable = aggregate_grades(grades)
     return CaseResult(
         case_id=case.id,
         surface=case.surface,
@@ -128,7 +113,8 @@ def to_case_result(case: Case, breakdown: List[Dict[str, Any]]) -> CaseResult:
         score=score,
         detail=detail,
         latency_s=0.0,
-        graded=True,
+        graded=bool(breakdown),
+        applicable=applicable,
     )
 
 
