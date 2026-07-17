@@ -56,35 +56,24 @@ async def get_goals(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    # Development mode: Support mock tokens
-    if (
-        settings.environment == "development"
-        and current_user
-        and current_user.get("sub") == "demo-user"
-    ):
-        # Verify user exists
+    # Production: Verify user has access
+    if current_user:
+        user_sub = current_user.get("sub")
+        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify the student_id matches the authenticated user
+        if db_user.id != student_uuid:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        # No auth - allow in development
+        if settings.environment != "development":
+            raise HTTPException(status_code=401, detail="Authentication required")
         db_user = db.query(User).filter(User.id == student_uuid).first()
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
-    else:
-        # Production: Verify user has access
-        if current_user:
-            user_sub = current_user.get("sub")
-            db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
-
-            # Verify the student_id matches the authenticated user
-            if db_user.id != student_uuid:
-                raise HTTPException(status_code=403, detail="Access denied")
-        else:
-            # No auth - allow in development
-            if settings.environment != "development":
-                raise HTTPException(status_code=401, detail="Authentication required")
-            db_user = db.query(User).filter(User.id == student_uuid).first()
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
 
     # Eager load subject relationship to avoid lazy loading issues
     goals = (
@@ -212,38 +201,27 @@ async def create_goal(
     """
     Create a new goal
     """
-    # Development mode: Support mock tokens
-    if (
-        settings.environment == "development"
-        and current_user
-        and current_user.get("sub") == "demo-user"
-    ):
+    # Production: Verify user has access
+    if current_user:
+        user_sub = current_user.get("sub")
+        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify the student_id matches the authenticated user
+        if db_user.id != UUID(request.student_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        creator_id = db_user.id
+    else:
+        # No auth - allow in development
+        if settings.environment != "development":
+            raise HTTPException(status_code=401, detail="Authentication required")
         db_user = db.query(User).filter(User.id == request.student_id).first()
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
         creator_id = db_user.id
-    else:
-        # Production: Verify user has access
-        if current_user:
-            user_sub = current_user.get("sub")
-            db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
-
-            # Verify the student_id matches the authenticated user
-            if db_user.id != UUID(request.student_id):
-                raise HTTPException(status_code=403, detail="Access denied")
-
-            creator_id = db_user.id
-        else:
-            # No auth - allow in development
-            if settings.environment != "development":
-                raise HTTPException(status_code=401, detail="Authentication required")
-            db_user = db.query(User).filter(User.id == request.student_id).first()
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
-            creator_id = db_user.id
 
     # Find subject if subject_name is provided, or create it if it doesn't exist
     subject_id = None
@@ -368,29 +346,20 @@ async def reset_goal(
         raise HTTPException(status_code=404, detail="Goal not found")
 
     # Verify user has access
-    if (
-        settings.environment == "development"
-        and current_user
-        and current_user.get("sub") == "demo-user"
-    ):
-        # In development mode with mock auth, allow reset
-        pass
+    if current_user:
+        user_sub = current_user.get("sub")
+        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify the goal belongs to the authenticated user
+        if db_user.id != goal.student_id:
+            raise HTTPException(status_code=403, detail="Access denied")
     else:
-        # Production: Verify user has access
-        if current_user:
-            user_sub = current_user.get("sub")
-            db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
-
-            # Verify the goal belongs to the authenticated user
-            if db_user.id != goal.student_id:
-                raise HTTPException(status_code=403, detail="Access denied")
-        else:
-            # No auth - allow in development
-            if settings.environment != "development":
-                raise HTTPException(status_code=401, detail="Authentication required")
+        # No auth - allow in development
+        if settings.environment != "development":
+            raise HTTPException(status_code=401, detail="Authentication required")
 
     # Only allow resetting completed goals
     if goal.status != "completed":
@@ -485,29 +454,20 @@ async def delete_goal(
         raise HTTPException(status_code=404, detail="Goal not found")
 
     # Verify user has access
-    if (
-        settings.environment == "development"
-        and current_user
-        and current_user.get("sub") == "demo-user"
-    ):
-        # In development mode with mock auth, allow deletion (frontend will handle user verification)
-        pass
+    if current_user:
+        user_sub = current_user.get("sub")
+        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify the goal belongs to the authenticated user
+        if db_user.id != goal.student_id:
+            raise HTTPException(status_code=403, detail="Access denied")
     else:
-        # Production: Verify user has access
-        if current_user:
-            user_sub = current_user.get("sub")
-            db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
-
-            if not db_user:
-                raise HTTPException(status_code=404, detail="User not found")
-
-            # Verify the goal belongs to the authenticated user
-            if db_user.id != goal.student_id:
-                raise HTTPException(status_code=403, detail="Access denied")
-        else:
-            # No auth - allow in development
-            if settings.environment != "development":
-                raise HTTPException(status_code=401, detail="Authentication required")
+        # No auth - allow in development
+        if settings.environment != "development":
+            raise HTTPException(status_code=401, detail="Authentication required")
 
     goal_id_str = str(goal_id)
 

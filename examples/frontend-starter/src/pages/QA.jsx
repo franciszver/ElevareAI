@@ -178,7 +178,6 @@ function QA() {
         context: {},
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preloadedQuery, user?.id]); // Only depend on preloadedQuery and user.id
 
   const handleSubmit = (e) => {
@@ -283,7 +282,7 @@ function QA() {
                 <ReactMarkdown
                   components={{
                     // Style code blocks
-                    code: ({ node, inline, className, children, ...props }) => {
+                    code: ({ inline, className, children, ...props }) => {
                       if (inline) {
                         return (
                           <code className="qa-inline-code" {...props}>

@@ -44,39 +44,24 @@ async def get_conversation_history(
     db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
 
     if not db_user:
-        # Support mock tokens for demo accounts (allow in both dev and production)
-        if user_sub == "demo-user":
-            # For demo accounts, verify the student_id exists
-            target_student = db.query(User).filter(User.id == UUID(student_id)).first()
-            if not target_student:
-                raise HTTPException(status_code=404, detail="Student not found")
-            # Demo users can access their own history (student_id matches)
-            if str(target_student.id) != student_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Access denied: You can only view your own conversation history",
-                )
-            # Use target_student as db_user for demo accounts
-            db_user = target_student
-        else:
-            raise HTTPException(status_code=404, detail="User not found")
-    else:
-        # Verify student_id exists
-        target_student = db.query(User).filter(User.id == UUID(student_id)).first()
-        if not target_student:
-            raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # Authorization check: Students can only access their own history
-        # Tutors and admins can access any student's history
-        user_role = db_user.role
-        if user_role == "student":
-            # Student can only access their own history
-            if str(db_user.id) != student_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Access denied: You can only view your own conversation history",
-                )
-        # Tutors and admins can access any student's history (for support purposes)
+    # Verify student_id exists
+    target_student = db.query(User).filter(User.id == UUID(student_id)).first()
+    if not target_student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    # Authorization check: Students can only access their own history
+    # Tutors and admins can access any student's history
+    user_role = db_user.role
+    if user_role == "student":
+        # Student can only access their own history
+        if str(db_user.id) != student_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: You can only view your own conversation history",
+            )
+    # Tutors and admins can access any student's history (for support purposes)
 
     conversation_history = ConversationHistory(db)
 

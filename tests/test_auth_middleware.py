@@ -231,6 +231,40 @@ class TestRequireRole:
         resp = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
 
+    def test_cognito_groups_claim_is_ignored(self, db_session, monkeypatch):
+        """Local JWTs never carry a 'cognito:groups' claim; require_role must
+        not fall back to it even if a token somehow includes one - only the
+        'role' claim (or DB role) is honored."""
+        from datetime import datetime, timedelta, timezone
+
+        from jose import jwt
+
+        from src.config.database import get_db
+
+        monkeypatch.setattr("src.config.settings.settings.jwt_secret", "test-secret")
+
+        app = self._build_role_app(["admin"])
+
+        def override_get_db():
+            yield db_session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        client = TestClient(app)
+        now = datetime.now(timezone.utc)
+        # No 'role' claim, but a 'cognito:groups' claim that would have
+        # granted access under the old fallback logic.
+        claims = {
+            "sub": "not-in-db-sub-3",
+            "email": "ghost3@example.com",
+            "cognito:groups": ["admin"],
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(minutes=30)).timestamp()),
+        }
+        token = jwt.encode(claims, "test-secret", algorithm="HS256")
+        resp = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
 
 class TestEndToEndLoginToMe:
     def test_register_login_then_get_me(self, client, db_session):

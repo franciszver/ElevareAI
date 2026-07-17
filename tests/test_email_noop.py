@@ -1,18 +1,16 @@
 """
 Email delivery is disabled for this demo app (AWS/SES access removed).
-These tests verify send_nudge_email is a log-only no-op: it succeeds with
-AWS credentials absent, makes no network call, and logs that delivery is
-disabled instead of the message body.
+These tests verify EmailService.send_email is a log-only no-op: it succeeds
+with AWS credentials absent, makes no network call, and logs that delivery
+is disabled instead of the message body.
 """
-
-import os
 
 import pytest
 
-from src.services.nudges.email_service import send_nudge_email
+from src.services.notifications.email import EmailService
 
 
-def test_send_nudge_email_succeeds_without_aws_env(monkeypatch, caplog):
+def test_send_email_succeeds_without_aws_env(db_session, monkeypatch, caplog):
     # Ensure no AWS/SES env vars are present.
     for var in (
         "AWS_ACCESS_KEY_ID",
@@ -24,14 +22,16 @@ def test_send_nudge_email_succeeds_without_aws_env(monkeypatch, caplog):
     ):
         monkeypatch.delenv(var, raising=False)
 
+    service = EmailService(db_session)
+
     with caplog.at_level("INFO"):
-        result = send_nudge_email(
+        result = service.send_email(
             to_email="student@example.com",
-            message="Time to keep your streak going!",
-            nudge_id="nudge-123",
+            subject="Your Study Companion - Quick Update",
+            body_text="Time to keep your streak going!",
         )
 
-    assert result is True
+    assert result["success"] is True
 
     log_text = caplog.text
     assert "disabled" in log_text.lower()

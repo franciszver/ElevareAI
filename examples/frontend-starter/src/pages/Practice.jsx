@@ -193,7 +193,6 @@ function Practice() {
         _isCorrect: isCorrect
       })),
     onSuccess: (response, variables) => {
-      const result = response.data?.data || {};
       const isCorrect = response._isCorrect !== undefined ? response._isCorrect : false;
 
       // Update attempts
