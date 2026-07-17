@@ -12,14 +12,14 @@
   "surfaces": {
     "guardrail": {
       "deterministic": {
-        "count": 7,
+        "count": 8,
         "graded_count": 0,
         "mean_score": null,
         "pass_rate": null,
-        "ungraded_count": 7
+        "ungraded_count": 8
       },
       "perf": {
-        "count": 7,
+        "count": 8,
         "latency_p50_s": 7.746,
         "latency_p95_s": 21.339,
         "mean_tokens": null,
@@ -28,17 +28,17 @@
     },
     "practice": {
       "deterministic": {
-        "count": 3,
-        "graded_count": 3,
+        "count": 5,
+        "graded_count": 5,
         "mean_score": 1.0,
         "pass_rate": 1.0,
         "ungraded_count": 0
       },
       "perf": {
-        "count": 3,
-        "latency_p50_s": 19.287,
+        "count": 5,
+        "latency_p50_s": 14.142,
         "latency_p95_s": 47.933,
-        "mean_tokens": 964.3333333333334,
+        "mean_tokens": 815.0,
         "truncated_count": 0
       }
     },
