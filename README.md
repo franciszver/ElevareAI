@@ -506,7 +506,11 @@ npm run dev
 6. **Seed Demo Data** — Follow [Database Recreation Runbook](#database-recreation-render-free-postgresql) to populate demo accounts
 
 ### Free-Tier Behavior Notes
-- **Cold Start**: Web services spin down after ~15 min idle; next request takes ~50s (send warm-up request before demos, e.g., `curl https://elevareai-api.onrender.com/health`)
+- **Pre-demo Warm-up**: Web services spin down after ~15 min idle; first request after idle takes ~50s. Before a demo, wake the backend by running:
+  ```bash
+  curl https://elevareai-api.onrender.com/health
+  ```
+  Wait for `{"status":"healthy","database":"connected"}` (may take ~50s). Repeat if needed. Then load the frontend at `https://elevareai-frontend.onrender.com` for a smooth demo experience.
 - **Postgres Expiry**: Free databases delete 30 days after creation, regardless of activity — see runbook for recovery procedure
 - **AI Latency**: Free OpenRouter model takes ~20s per response
 
