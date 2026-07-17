@@ -5,8 +5,6 @@ Unit Tests for Progress Dashboard Edge Cases
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-import pytest
-
 from src.api.handlers.progress import _get_related_subjects
 from tests.test_models import TestGoal, TestSubject, TestUser
 
@@ -46,14 +44,11 @@ class TestProgressEdgeCases:
         assert len(empty_state_response["data"]["suggestions"]) > 0
         assert empty_state_response["data"]["suggestions"][0]["type"] == "onboarding"
 
-    @pytest.mark.xfail(
-        reason="stale expected-content assertion — backlogged", strict=False
-    )
     def test_related_subjects_suggestions_sat_math(self):
         """Test related subject suggestions for SAT Math"""
         suggestions = _get_related_subjects("SAT Math")
         assert len(suggestions) > 0
-        assert "SAT English" in suggestions
+        assert "College Essays" in suggestions
         assert any("AP" in s for s in suggestions)
 
     def test_related_subjects_suggestions_algebra(self):

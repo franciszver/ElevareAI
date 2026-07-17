@@ -11,7 +11,11 @@ from src.services.ai.prompts import PromptTemplates
 
 
 def calculate_confidence(
-    query: str, answer: str, context: Dict = None, query_analysis: Dict = None
+    query: str,
+    answer: str,
+    context: Dict = None,
+    query_analysis: Dict = None,
+    llm_confidence: float = None,
 ) -> Dict[str, any]:
     """
     Calculate confidence score using multi-factor approach
@@ -21,6 +25,11 @@ def calculate_confidence(
         answer: AI-generated answer
         context: Additional context
         query_analysis: Pre-analyzed query (from QueryAnalyzer)
+        llm_confidence: Pre-extracted LLM self-assessment (0.0-1.0), e.g. parsed
+            from a trailing "CONFIDENCE: 0.NN" line on the answer itself. When
+            provided, this is used directly for the LLM factor and no separate
+            confidence-assessment API call is made. When None, falls back to
+            the legacy behavior of calling the model for a standalone assessment.
 
     Returns:
         dict with 'confidence' (High/Medium/Low), 'confidence_score' (0-1), and 'factors'
@@ -40,24 +49,29 @@ def calculate_confidence(
             }
 
     # Factor 1: LLM Self-Assessment (40% weight)
-    try:
-        llm_prompt = PromptTemplates.confidence_assessment_prompt(query, answer)
-        llm_response = openai_client.chat_completion(
-            llm_prompt,
-            temperature=0.3,  # Lower temperature for more consistent assessment
-            max_tokens=400,  # Reasoning models consume budget on hidden reasoning
-        )
-        # Extract number from response
-        import re
+    if llm_confidence is not None:
+        # Already extracted from the answer generation call (e.g. a trailing
+        # "CONFIDENCE: 0.NN" line) - no separate network call needed.
+        factors["llm_confidence"] = llm_confidence
+    else:
+        try:
+            llm_prompt = PromptTemplates.confidence_assessment_prompt(query, answer)
+            llm_response = openai_client.chat_completion(
+                llm_prompt,
+                temperature=0.3,  # Lower temperature for more consistent assessment
+                max_tokens=400,  # Reasoning models consume budget on hidden reasoning
+            )
+            # Extract number from response
+            import re
 
-        llm_score_match = re.search(r"0?\.\d+|1\.0|0", llm_response.strip())
-        if llm_score_match:
-            factors["llm_confidence"] = float(llm_score_match.group())
-        else:
-            factors["llm_confidence"] = 0.5  # Default if parsing fails
-    except Exception as e:
-        # If LLM assessment fails, use default
-        factors["llm_confidence"] = 0.5
+            llm_score_match = re.search(r"0?\.\d+|1\.0|0", llm_response.strip())
+            if llm_score_match:
+                factors["llm_confidence"] = float(llm_score_match.group())
+            else:
+                factors["llm_confidence"] = 0.5  # Default if parsing fails
+        except Exception as e:
+            # If LLM assessment fails, use default
+            factors["llm_confidence"] = 0.5
 
     # Factor 2: Context Relevance (30% weight)
     context_relevance = 1.0

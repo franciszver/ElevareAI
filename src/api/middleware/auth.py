@@ -83,9 +83,8 @@ def require_role(allowed_roles: list[str]):
     ) -> dict:
         from src.models.user import User
 
-        # Extract role from token (may be in 'cognito:groups' or custom claim)
-        user_groups = user.get("cognito:groups", [])
-        token_role = user.get("role") or (user_groups[0] if user_groups else None)
+        # Extract role from token (custom claim)
+        token_role = user.get("role")
 
         # Check database role (more reliable)
         user_sub = user.get("sub")

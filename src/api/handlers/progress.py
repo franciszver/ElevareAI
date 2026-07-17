@@ -114,36 +114,26 @@ async def get_progress(
 
     Called by React frontend on login
     """
-    # Support mock auth tokens (used for demo accounts)
-    # When using mock tokens, current_user.sub will be "demo-user"
-    if current_user.get("sub") == "demo-user":
-        # Mock auth: Just verify the user_id exists in the database
-        db_user = db.query(User).filter(User.id == user_id).first()
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
-    else:
-        # Production: Verify user has access via database lookup
-        user_sub = current_user.get("sub")
-        # Try multiple ways to get email from Cognito token
-        user_email = (
-            current_user.get("email") or current_user.get("cognito:username") or ""
-        )
-        # Only use email if it looks like an email address
-        if user_email and "@" not in user_email:
-            user_email = ""
+    # Production: Verify user has access via database lookup
+    user_sub = current_user.get("sub")
+    # Try multiple ways to get email from Cognito token
+    user_email = current_user.get("email") or current_user.get("cognito:username") or ""
+    # Only use email if it looks like an email address
+    if user_email and "@" not in user_email:
+        user_email = ""
 
-        # Ensure user exists in database (auto-create on first login)
-        db_user = ensure_user_exists(db, user_sub, user_email, role="student")
+    # Ensure user exists in database (auto-create on first login)
+    db_user = ensure_user_exists(db, user_sub, user_email, role="student")
 
-        # The user_id in the URL might be the Cognito sub or the database UUID
-        # If it's the Cognito sub, use the database user's ID instead
-        # If it's already the database UUID, verify it matches
-        if str(user_id) == user_sub:
-            # Frontend sent Cognito sub instead of database UUID - use database user ID
-            user_id = db_user.id
-        elif db_user.id != user_id:
-            # Frontend sent a different UUID - verify it matches the authenticated user
-            raise HTTPException(status_code=403, detail="Access denied")
+    # The user_id in the URL might be the Cognito sub or the database UUID
+    # If it's the Cognito sub, use the database user's ID instead
+    # If it's already the database UUID, verify it matches
+    if str(user_id) == user_sub:
+        # Frontend sent Cognito sub instead of database UUID - use database user ID
+        user_id = db_user.id
+    elif db_user.id != user_id:
+        # Frontend sent a different UUID - verify it matches the authenticated user
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Get user's goals (active and recently completed)
     active_goals = (

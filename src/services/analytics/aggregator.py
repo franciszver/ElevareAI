@@ -171,6 +171,7 @@ class AnalyticsAggregator:
             },
             "sessions": {"total": session_count, "recent_30_days": recent_sessions},
             "qa": {"total_queries": qa_count},
+            "gamification": student.gamification or {},
         }
 
     def get_override_analytics(

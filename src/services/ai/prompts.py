@@ -172,8 +172,11 @@ Your role is to:
 Context:
 {context_str}
 
-Provide a helpful answer. If the query is ambiguous, ask for clarification. 
-If you're not confident, acknowledge it and suggest consulting their tutor.""",
+Provide a helpful answer. If the query is ambiguous, ask for clarification.
+If you're not confident, acknowledge it and suggest consulting their tutor.
+
+After your answer, on a new final line, self-assess your confidence in the answer using EXACTLY this format (a number between 0.00 and 1.00, two decimal places):
+CONFIDENCE: 0.NN""",
             },
         ]
 

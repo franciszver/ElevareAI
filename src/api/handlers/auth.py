@@ -102,12 +102,6 @@ async def get_current_user_info(
     This endpoint ensures the user exists in the database and returns their info.
     Called by frontend after login to get the database user_id.
     """
-    # Support mock auth tokens for demo accounts
-    if current_user.get("sub") == "demo-user":
-        raise HTTPException(
-            status_code=400, detail="This endpoint is not available for demo accounts"
-        )
-
     # Production: Get or create user in database
     user_sub = current_user.get("sub")
     # Try multiple ways to get email from Cognito token

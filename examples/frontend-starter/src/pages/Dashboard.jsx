@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/apiClient';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -9,7 +9,6 @@ import './Dashboard.css';
 
 function Dashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [hideCompleted, setHideCompleted] = useState(false);
 
   const { data: progress, isLoading: progressLoading, error: progressError } = useQuery({
@@ -220,7 +219,7 @@ function Dashboard() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, value }) => {
+                          label={({ value }) => {
                             // Show only completion percentage on chart to avoid cutoff
                             // Full name will be shown in tooltip
                             if (value > 0) {

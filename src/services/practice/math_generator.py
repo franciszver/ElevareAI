@@ -25,6 +25,13 @@ from sympy import (
 from sympy.parsing.sympy_parser import parse_expr
 
 
+def _real_roots(roots):
+    """Filter sympy roots to real ones. solve() defaults to the complex
+    domain, so a negative discriminant still returns complex roots rather
+    than an empty list."""
+    return [r for r in roots if r.is_real]
+
+
 class MathGenerator:
     """Generate and validate math practice problems using SymPy"""
 
@@ -134,7 +141,7 @@ class MathGenerator:
             a = random.randint(1, 5)
             b = random.randint(-10, 10)
             c = random.randint(-20, 20)
-            roots = solve(Eq(a * var**2 + b * var + c, 0), var)
+            roots = _real_roots(solve(Eq(a * var**2 + b * var + c, 0), var))
             if len(roots) == 0:
                 # No real roots, try again with simpler
                 return self.generate_quadratic_equation(difficulty - 2, variable)
@@ -161,13 +168,14 @@ class MathGenerator:
 
         # Get solutions
         equation = Eq(a * var**2 + b * var + c, 0)
-        solutions = solve(equation, var)
+        # Filter to real roots so we never try to float() a complex number
+        # below.
+        solutions = _real_roots(solve(equation, var))
+        if len(solutions) == 0:
+            return self.generate_quadratic_equation(max(1, difficulty - 2), variable)
 
         # For multiple choice, use one solution
-        if len(solutions) > 0:
-            correct_value = float(solutions[0].evalf())
-        else:
-            correct_value = 0.0
+        correct_value = float(solutions[0].evalf())
 
         # Generate choices
         choices, correct_letter = self._generate_math_choices(
