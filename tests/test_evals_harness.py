@@ -150,17 +150,40 @@ class TestRunner:
             assert isinstance(result, CaseResult)
             assert result.case_id
             assert result.surface in {"qa", "summary", "practice", "guardrail"}
-            assert isinstance(result.passed, bool)
+            if result.graded:
+                assert isinstance(result.passed, bool)
+            else:
+                assert result.passed is None
             assert 0.0 <= result.score <= 1.0
             assert result.latency_s >= 0.0
 
         qa_results = [r for r in results if r.surface == "qa"]
         assert qa_results
         assert all(r.passed for r in qa_results)
+        assert all(r.graded for r in qa_results)
 
         practice_results = [r for r in results if r.surface == "practice"]
         assert practice_results
         assert all(r.passed for r in practice_results)
+        assert all(r.graded for r in practice_results)
+
+    def test_ungraded_surface_is_not_auto_passed(self):
+        """A case whose surface has no registered grader must be reported
+        as ungraded (graded=False, passed=None), not as an auto-pass."""
+        cases = load_cases(EXAMPLE_DATASET)
+
+        def fake_generate(case: Case) -> str:
+            return "generated output"
+
+        # No grader registered for "summary" (or any surface).
+        results = run_cases(cases, graders_by_surface={}, generate_fn=fake_generate)
+
+        summary_results = [r for r in results if r.surface == "summary"]
+        assert summary_results
+        for result in summary_results:
+            assert result.graded is False
+            assert result.passed is None
+            assert "no grader registered" in result.detail
 
 
 class TestReport:
@@ -179,9 +202,67 @@ class TestReport:
         assert report["practice"]["count"] == 1
         assert report["practice"]["pass_rate"] == pytest.approx(1.0)
 
+    def test_ungraded_cases_excluded_from_pass_rate(self):
+        results = [
+            CaseResult("c1", "qa", True, 1.0, "ok", 0.01),
+            CaseResult(
+                "c2",
+                "qa",
+                None,
+                0.0,
+                "no grader registered for surface 'qa'",
+                0.02,
+                graded=False,
+            ),
+        ]
+        report = build_report(results)
+
+        assert report["qa"]["count"] == 2
+        assert report["qa"]["graded_count"] == 1
+        assert report["qa"]["ungraded_count"] == 1
+        # Only the graded case counts toward pass_rate/mean_score.
+        assert report["qa"]["pass_rate"] == pytest.approx(1.0)
+        assert report["qa"]["mean_score"] == pytest.approx(1.0)
+
+    def test_all_ungraded_surface_has_no_pass_rate(self):
+        results = [
+            CaseResult(
+                "c1",
+                "summary",
+                None,
+                0.0,
+                "no grader registered for surface 'summary'",
+                0.01,
+                graded=False,
+            ),
+        ]
+        report = build_report(results)
+
+        assert report["summary"]["graded_count"] == 0
+        assert report["summary"]["ungraded_count"] == 1
+        assert report["summary"]["pass_rate"] is None
+        assert report["summary"]["mean_score"] is None
+
     def test_render_markdown_contains_surfaces(self):
         results = [CaseResult("c1", "qa", True, 1.0, "ok", 0.01)]
         report = build_report(results)
         md = render_markdown(report)
         assert "qa" in md
         assert "pass" in md.lower()
+
+    def test_render_markdown_surfaces_ungraded_count(self):
+        results = [
+            CaseResult(
+                "c1",
+                "summary",
+                None,
+                0.0,
+                "no grader registered for surface 'summary'",
+                0.01,
+                graded=False,
+            ),
+        ]
+        report = build_report(results)
+        md = render_markdown(report)
+        assert "Ungraded" in md
+        assert "N/A" in md

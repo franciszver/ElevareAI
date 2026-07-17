@@ -26,11 +26,12 @@ GraderFn = Callable[[str], GradeResult]
 class CaseResult:
     case_id: str
     surface: str
-    passed: bool
+    passed: Optional[bool]
     score: float
     detail: str
     latency_s: float
     tokens: Optional[int] = None
+    graded: bool = True
 
 
 def live_generate_stub(case: Case) -> str:
@@ -52,8 +53,9 @@ def run_cases(
     """Run `cases` through `generate_fn`, grading each output with the
     grader(s) registered for its surface in `graders_by_surface`.
 
-    If a surface has no graders registered, the case is recorded as passed
-    with a "no grader registered" detail (E1 fills these in per surface).
+    If a surface has no graders registered, the case is recorded as ungraded
+    (graded=False, passed=None) rather than a fabricated pass (E1 fills these
+    in per surface).
     """
     generate = generate_fn or live_generate_stub
 
@@ -64,23 +66,16 @@ def run_cases(
         latency_s = time.perf_counter() - start
 
         graders = graders_by_surface.get(case.surface, [])
-        if not graders:
-            results.append(
-                CaseResult(
-                    case_id=case.id,
-                    surface=case.surface,
-                    passed=True,
-                    score=1.0,
-                    detail="no grader registered for this surface (E1 TODO)",
-                    latency_s=latency_s,
-                )
-            )
-            continue
-
-        grades = [grader(output) for grader in graders]
-        passed = all(g.passed for g in grades)
-        score = sum(g.score for g in grades) / len(grades)
-        detail = "; ".join(g.detail for g in grades)
+        if graders:
+            grades = [grader(output) for grader in graders]
+            passed = all(g.passed for g in grades)
+            score = sum(g.score for g in grades) / len(grades)
+            detail = "; ".join(g.detail for g in grades)
+            graded = True
+        else:
+            passed, score = None, 0.0
+            detail = f"no grader registered for surface '{case.surface}'"
+            graded = False
 
         results.append(
             CaseResult(
@@ -90,6 +85,7 @@ def run_cases(
                 score=score,
                 detail=detail,
                 latency_s=latency_s,
+                graded=graded,
             )
         )
 

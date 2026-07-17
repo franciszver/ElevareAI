@@ -34,6 +34,17 @@ def _require_field(raw: Dict[str, Any], name: str, index: int) -> Any:
     return raw[name]
 
 
+def _check_optional_type(
+    raw: Dict[str, Any], name: str, expected_type: type, case_id: str
+) -> Any:
+    value = raw.get(name)
+    if value is not None and not isinstance(value, expected_type):
+        raise ValueError(
+            f"Case '{case_id}' field '{name}' must be a {expected_type.__name__} if present"
+        )
+    return value
+
+
 def _validate_case_dict(raw: Any, index: int) -> Case:
     if not isinstance(raw, dict):
         raise ValueError(
@@ -54,15 +65,8 @@ def _validate_case_dict(raw: Any, index: int) -> Case:
             f"Case '{case_id}' field 'input' must be a mapping, got {type(input_dict).__name__}"
         )
 
-    expect = raw.get("expect")
-    if expect is not None and not isinstance(expect, dict):
-        raise ValueError(
-            f"Case '{case_id}' field 'expect' must be a mapping if present"
-        )
-
-    rubric = raw.get("rubric")
-    if rubric is not None and not isinstance(rubric, str):
-        raise ValueError(f"Case '{case_id}' field 'rubric' must be a string if present")
+    expect = _check_optional_type(raw, "expect", dict, case_id)
+    rubric = _check_optional_type(raw, "rubric", str, case_id)
 
     tags = raw.get("tags") or []
     if not isinstance(tags, list):
