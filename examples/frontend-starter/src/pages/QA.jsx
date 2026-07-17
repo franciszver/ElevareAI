@@ -190,6 +190,27 @@ function QA() {
     }
   };
 
+  // Dedupe history against the live conversation: if the just-asked Q&A pair
+  // (fired via the preload POST) already landed in `conversation`, the
+  // concurrent history GET may return afterward and include the same pair -
+  // filter it out of history so it never renders twice. Live wins since it's
+  // the fresh entry the user just triggered.
+  const pairKey = (question, answer) => `${question ?? ''} ${answer ?? ''}`;
+
+  const liveConversationPairs = new Set();
+  for (let i = 0; i < conversation.length - 1; i += 2) {
+    liveConversationPairs.add(pairKey(conversation[i]?.content, conversation[i + 1]?.content));
+  }
+
+  const dedupedHistoryConversation = [];
+  for (let i = 0; i < historyConversation.length - 1; i += 2) {
+    const questionMsg = historyConversation[i];
+    const answerMsg = historyConversation[i + 1];
+    if (!liveConversationPairs.has(pairKey(questionMsg?.content, answerMsg?.content))) {
+      dedupedHistoryConversation.push(questionMsg, answerMsg);
+    }
+  }
+
   const renderMessage = (msg, key) => (
     <div key={key} className={`qa-message ${msg.type}`}>
       <div className="qa-content">
@@ -298,7 +319,7 @@ function QA() {
       )}
 
       <div className="qa-conversation">
-        {conversation.length === 0 && historyConversation.length === 0 && !queryMutation.isPending && !preloadedQuery && !historyLoading && (
+        {conversation.length === 0 && dedupedHistoryConversation.length === 0 && !queryMutation.isPending && !preloadedQuery && !historyLoading && (
           <div className="qa-empty">
             <p>Start a conversation by asking a question below!</p>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
@@ -311,7 +332,7 @@ function QA() {
             )}
           </div>
         )}
-        {historyConversation.length > 0 && (
+        {dedupedHistoryConversation.length > 0 && (
           <div style={{
             marginBottom: '1rem',
             padding: '0.75rem',
@@ -324,7 +345,7 @@ function QA() {
             💭 Showing conversation history - the AI remembers your previous questions!
           </div>
         )}
-        {historyConversation.map((msg, idx) => renderMessage(msg, `hist-${idx}`))}
+        {dedupedHistoryConversation.map((msg, idx) => renderMessage(msg, `hist-${idx}`))}
         {conversation.map((msg, idx) => renderMessage(msg, `live-${idx}`))}
         {/* Invisible element at the bottom for scrolling */}
         <div ref={conversationEndRef} style={{ height: '1px' }} />
