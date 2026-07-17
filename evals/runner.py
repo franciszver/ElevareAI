@@ -22,7 +22,7 @@ import inspect
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from evals.graders.deterministic import GradeResult
 from evals.schema import Case
@@ -60,6 +60,31 @@ class CaseResult:
     latency_s: float
     tokens: Optional[int] = None
     graded: bool = True
+    # False when no grader for this surface produced an applicable result
+    # (either no grader was registered, or every registered grader's
+    # GradeResult was applicable=False). Excluded from build_report's
+    # pass-rate/mean-score, same as grade_fixtures.py's aggregation.
+    applicable: bool = True
+
+
+def aggregate_grades(
+    grades: List[GradeResult],
+) -> Tuple[Optional[bool], float, str, bool]:
+    """Aggregate a case's GradeResults into (passed, score, detail, applicable),
+    excluding applicable=False results from the pass/score computation. The
+    single shared notion of "not applicable" used by both `run_cases` below
+    and `evals/grade_fixtures.py`'s `to_case_result`.
+
+    Returns (None, 0.0, "No applicable graders for this case", False) if no
+    grade is applicable.
+    """
+    applicable_grades = [g for g in grades if g.applicable]
+    if not applicable_grades:
+        return None, 0.0, "No applicable graders for this case", False
+    passed = all(g.passed for g in applicable_grades)
+    score = sum(g.score for g in applicable_grades) / len(applicable_grades)
+    detail = "; ".join(g.detail for g in applicable_grades)
+    return passed, score, detail, True
 
 
 def live_generate_stub(case: Case) -> str:
@@ -96,14 +121,13 @@ def run_cases(
         graders = graders_by_surface.get(case.surface, [])
         if graders:
             grades = [_call_grader(grader, output, case) for grader in graders]
-            passed = all(g.passed for g in grades)
-            score = sum(g.score for g in grades) / len(grades)
-            detail = "; ".join(g.detail for g in grades)
+            passed, score, detail, applicable = aggregate_grades(grades)
             graded = True
         else:
             passed, score = None, 0.0
             detail = f"no grader registered for surface '{case.surface}'"
             graded = False
+            applicable = False
 
         results.append(
             CaseResult(
@@ -114,6 +138,7 @@ def run_cases(
                 detail=detail,
                 latency_s=latency_s,
                 graded=graded,
+                applicable=applicable,
             )
         )
 

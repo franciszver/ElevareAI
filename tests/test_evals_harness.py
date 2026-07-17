@@ -213,6 +213,7 @@ class TestReport:
                 "no grader registered for surface 'qa'",
                 0.02,
                 graded=False,
+                applicable=False,
             ),
         ]
         report = build_report(results)
@@ -234,6 +235,7 @@ class TestReport:
                 "no grader registered for surface 'summary'",
                 0.01,
                 graded=False,
+                applicable=False,
             ),
         ]
         report = build_report(results)
@@ -260,6 +262,7 @@ class TestReport:
                 "no grader registered for surface 'summary'",
                 0.01,
                 graded=False,
+                applicable=False,
             ),
         ]
         report = build_report(results)
