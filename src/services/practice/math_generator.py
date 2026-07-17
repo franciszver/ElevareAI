@@ -316,26 +316,42 @@ class MathGenerator:
         """Generate multiple choice options for numeric answers"""
         choices = []
 
-        # Generate distractors based on common mistakes
-        distractors = []
-
-        # Common mistake: sign error
-        distractors.append(-correct_value)
-
-        # Common mistake: off by factor
+        # Candidate distractors, ordered closest-common-mistake first so
+        # that when several collide (e.g. correct_value == 0) we still
+        # prefer plausible near misses over far-off values.
+        candidates = [
+            correct_value + 1,  # off-by-one
+            correct_value - 1,
+            correct_value + 2,  # off-by-two
+            correct_value - 2,
+            -correct_value,  # sign error
+        ]
         if correct_value != 0:
-            distractors.append(correct_value * 2)
-            distractors.append(correct_value / 2)
+            candidates.append(correct_value * 2)  # wrong operation: doubled
+            candidates.append(correct_value / 2)  # wrong operation: halved
 
-        # Random nearby values
-        for _ in range(2):
-            offset = random.choice([-5, -3, -2, -1, 1, 2, 3, 5])
-            distractors.append(correct_value + offset)
+        seen = {round(correct_value, 4)}
+        distractors = []
+        for candidate in candidates:
+            rounded = round(candidate, 4)
+            if rounded in seen:
+                continue
+            seen.add(rounded)
+            distractors.append(candidate)
+            if len(distractors) == 3:
+                break
 
-        # Remove duplicates and the correct answer
-        distractors = list(set(distractors))
-        distractors = [d for d in distractors if abs(d - correct_value) > 0.01]
-        distractors = distractors[:3]  # Take 3
+        # Top up: if collapsing duplicates left us short of 3 distinct
+        # distractors, synthesize additional near-miss offsets until we
+        # have exactly 3 (guarantees 4 distinct choices overall).
+        extra = 3
+        while len(distractors) < 3:
+            candidate = correct_value + extra if extra % 2 else correct_value - extra
+            rounded = round(candidate, 4)
+            if rounded not in seen:
+                seen.add(rounded)
+                distractors.append(candidate)
+            extra += 1
 
         # Format choices
         all_options = [correct_value] + distractors
@@ -361,29 +377,54 @@ class MathGenerator:
         """Generate multiple choice options for expression answers"""
         choices = []
 
-        # Generate distractors
-        distractors = []
-
-        # Common mistakes
+        # Candidate distractors modeling common algebra mistakes, ordered
+        # most-plausible first.
+        candidates = []
         try:
-            var = symbols("x")
             if operation == "expand":
-                # Wrong expansion
-                expanded_wrong = expand(original_expr) + 1
-                distractors.append(str(expanded_wrong))
+                expanded = expand(original_expr)
+                # Common mistake: sign error on a cross term when FOILing
+                candidates.append(str(expanded + 1))
+                candidates.append(str(expanded - 1))
             elif operation == "factor":
-                # Not fully factored
-                factored_wrong = original_expr  # Original (not factored)
-                distractors.append(str(factored_wrong))
-        except:
+                # Common mistake: forgot to factor / left as original expression
+                candidates.append(str(original_expr))
+                # Common mistake: sign error in a factored term
+                candidates.append(str(factor(original_expr) + 1))
+            else:
+                simplified = simplify(original_expr)
+                # Common mistake: sign error
+                candidates.append(str(-simplified))
+                # Common mistake: off-by-one constant term
+                candidates.append(str(simplified + 1))
+        except Exception:
             pass
 
-        # Add some random variations
-        distractors.append(f"{correct_value} + 1")
-        distractors.append(f"{correct_value} * 2")
+        # Fallback common-mistake perturbations of the answer text itself
+        candidates.append(f"{correct_value} + 1")
+        candidates.append(f"{correct_value} - 1")
+        candidates.append(f"{correct_value} * 2")
 
-        # Remove duplicates
-        distractors = list(set(distractors))[:3]
+        seen = {correct_value}
+        distractors = []
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            distractors.append(candidate)
+            if len(distractors) == 3:
+                break
+
+        # Top up: guarantee exactly 3 distinct distractors even if the
+        # candidates above collapsed via dedup (e.g. correct_value + 1
+        # coincides with another candidate string).
+        extra = 2
+        while len(distractors) < 3:
+            candidate = f"{correct_value} + {extra}"
+            if candidate not in seen:
+                seen.add(candidate)
+                distractors.append(candidate)
+            extra += 1
 
         all_options = [correct_value] + distractors
         random.shuffle(all_options)

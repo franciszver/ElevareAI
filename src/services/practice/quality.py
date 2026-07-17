@@ -425,11 +425,12 @@ Include exactly 4 answer choices with one clearly correct answer. Your response 
 
     def _generate_numeric_distractors(self, prefix: str, value: float) -> List[str]:
         """Generate 3 plausible numeric distractors via common-mistake
-        perturbations (sign flip, off-by-common-error offsets, factor of two)"""
-        candidates = [-value, value * 2]
+        perturbations (off-by-one/two, sign flip, doubled/halved), ordered
+        closest-to-the-answer first so far-off values are only used when
+        closer perturbations collide with each other or the correct value."""
+        candidates = [value + 1, value - 1, value + 2, value - 2, -value]
         if value != 0:
-            candidates.append(value / 2)
-        candidates.extend([value + 1, value - 1, value + 2, value - 3])
+            candidates.extend([value * 2, value / 2])
 
         seen = {round(value, 4)}
         distractors = []

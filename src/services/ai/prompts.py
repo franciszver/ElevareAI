@@ -74,7 +74,7 @@ Your problems should:
 2. Be clear and unambiguous
 3. Include exactly 4 answer choices (A, B, C, D)
 4. Have one clearly correct answer
-5. Include 3 plausible distractors (wrong answers)
+5. Include 3 plausible distractors (wrong answers) that are on-topic, era/context-appropriate (no anachronisms), and represent realistic student misconceptions or common mistakes for the subject/topic — never obviously-wrong, trivially-eliminable, or throwaway options
 6. Include a brief explanation of why the correct answer is right
 7. Be educational and help students learn
 8. Match the subject and topic exactly
@@ -133,6 +133,8 @@ Provide a JSON response with:
 
         conciseness_guidance = """Keep your answer concise — aim for under ~250 words. Avoid heavy formatting and get to the point. When writing math, use LaTeX wrapped in $ delimiters for inline math (e.g. $x^2 + 7x + 12$) and $$ for display equations — the UI renders KaTeX, so do NOT write bare LaTeX commands like \\times outside $ delimiters and do NOT use \\( \\) or \\[ \\]."""
 
+        academic_honesty_guidance = """If the student is asking for help doing something dishonest (cheating on a test, plagiarizing, or getting answers to submit as their own work), briefly and kindly decline the dishonest part and redirect to real study help — for example: "I can't help you cheat, but I'd love to help you actually master this — want to practice some problems?" Keep the redirect brief and warm; do not lecture or moralize at length."""
+
         # Build system message based on query type
         if is_out_of_scope:
             system_message = """You are an AI study companion helping students with educational topics.
@@ -157,7 +159,9 @@ Your role is to:
 4. Suggest consulting with their tutor for complex topics
 5. Be encouraging and supportive"""
 
-        system_message = f"{system_message}\n{conciseness_guidance}"
+        system_message = (
+            f"{system_message}\n{conciseness_guidance}\n{academic_honesty_guidance}"
+        )
 
         # Build user message
         if is_multi_part and query_parts:

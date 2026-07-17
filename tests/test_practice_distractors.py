@@ -225,3 +225,65 @@ def test_add_multiple_choice_format_numeric_answer_no_placeholders():
     for text in option_texts:
         assert text not in PLACEHOLDER_STRINGS
     assert len(set(option_texts)) == 4
+
+
+def test_generate_numeric_distractors_distinct_and_no_placeholders():
+    """Distractors must be distinct, non-placeholder, and structurally
+    numeric (common-mistake perturbations of the answer)."""
+    service = PracticeQualityService()
+    distractors = service._generate_numeric_distractors("", 12.0)
+
+    assert len(distractors) == 3
+    assert len(set(distractors)) == 3
+    for d in distractors:
+        assert d not in PLACEHOLDER_STRINGS
+        assert d != "12"  # never equal to the correct answer
+
+
+def test_generate_numeric_distractors_are_close_to_the_answer():
+    """Common-mistake perturbations (off-by-one/two, sign error,
+    doubled/halved) should be prioritized closest-to-the-answer first, not
+    random far-off values. For a reasonably sized answer, the generated
+    distractors should stay within a small multiple of the answer's
+    magnitude rather than jumping to arbitrary far values."""
+    service = PracticeQualityService()
+    value = 20.0
+    distractors = service._generate_numeric_distractors("", value)
+
+    numeric_distractors = [float(d) for d in distractors]
+    for d in numeric_distractors:
+        # Closest-first ordering means the top 3 candidates (+1, -1, +2)
+        # should be picked before doubled/halved for a non-colliding value.
+        assert abs(d - value) <= value  # not wildly far off (e.g. not 10x)
+
+
+def test_generate_numeric_distractors_zero_value_still_distinct():
+    """Edge case: correct_value == 0 makes sign-flip and doubling collide
+    with 0 itself; the top-up/dedup logic must still yield 3 distinct
+    non-zero distractors."""
+    service = PracticeQualityService()
+    distractors = service._generate_numeric_distractors("", 0.0)
+
+    assert len(distractors) == 3
+    assert len(set(distractors)) == 3
+    assert "0" not in distractors
+
+
+def test_practice_generation_prompt_includes_distractor_plausibility_guidance():
+    """The non-math practice generation prompt must explicitly instruct the
+    model to produce plausible, on-topic, era/context-appropriate distractors
+    that represent realistic misconceptions - not obviously-wrong throwaway
+    options - while preserving the JSON-only + no-LaTeX constraints."""
+    from src.services.ai.prompts import PromptTemplates
+
+    messages = PromptTemplates.practice_generation_prompt(
+        subject="History", topic="Ancient Rome", difficulty_level=5
+    )
+    system_content = messages[0]["content"]
+
+    assert "plausible" in system_content.lower()
+    assert "anachronism" in system_content.lower()
+    assert "misconception" in system_content.lower()
+    # JSON-only + no-LaTeX constraints must still be present
+    assert "JSON" in system_content
+    assert "LaTeX" in system_content
