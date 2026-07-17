@@ -114,3 +114,12 @@ services:
       # URL, derived from its `name` above (see CIRCULAR URL NOTE above).
       - key: VITE_API_BASE_URL
         value: https://elevareai-api.onrender.com/api/v1
+      # Render auto-detects the repo-root requirements.txt and pip-installs it
+      # even for static sites (observed failing on Python 3.14 building
+      # pydantic-core from source). Our buildCommand runs npm ci itself, so
+      # skip auto dependency installation entirely; PYTHON_VERSION is a
+      # fallback pin in case any Python detection still runs.
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: PYTHON_VERSION
+        value: 3.11.9
