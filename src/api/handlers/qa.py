@@ -4,9 +4,10 @@ POST /qa/query - Submit student query and get AI answer
 """
 
 import logging
+import re
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -27,6 +28,41 @@ from src.services.qa.conversation_history import ConversationHistory
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/qa", tags=["qa"])
+
+# Matches a trailing "CONFIDENCE: ..." line (tolerant of whitespace/case).
+# The value itself is validated separately so malformed values still get
+# stripped from the visible answer.
+_CONFIDENCE_LINE_RE = re.compile(
+    r"\n?[ \t]*CONFIDENCE:[ \t]*(\S*)[ \t]*$",
+    re.IGNORECASE,
+)
+
+
+def extract_llm_confidence(answer: str) -> Tuple[str, Optional[float]]:
+    """
+    Extract a trailing "CONFIDENCE: 0.NN" line from an LLM answer.
+
+    Returns:
+        (stripped_answer, confidence) - confidence is None if the line is
+        absent or its value is malformed/out-of-range. The stripped_answer
+        never includes the CONFIDENCE line, regardless of whether extraction
+        of the value succeeded.
+    """
+    match = _CONFIDENCE_LINE_RE.search(answer)
+    if not match:
+        return answer, None
+
+    stripped_answer = answer[: match.start()].rstrip()
+
+    try:
+        confidence = float(match.group(1))
+    except ValueError:
+        return stripped_answer, None
+
+    if not (0.0 <= confidence <= 1.0):
+        return stripped_answer, None
+
+    return stripped_answer, confidence
 
 
 @router.post("/query", response_model=dict)
@@ -182,12 +218,18 @@ async def submit_query(
                 status_code=500, detail=f"Failed to generate answer: {str(e)}"
             )
 
+        # Extract the model's self-assessed confidence (trailing "CONFIDENCE:
+        # 0.NN" line) so a separate confidence-assessment API call isn't
+        # needed. Falls back to None (legacy behavior) if the model omits it.
+        answer, llm_confidence = extract_llm_confidence(answer)
+
         # Calculate confidence with query analysis
         confidence_result = calculate_confidence(
             query=request.query,
             answer=answer,
             context=context,
             query_analysis=query_analysis,
+            llm_confidence=llm_confidence,
         )
 
         # Determine escalation - enhanced logic
