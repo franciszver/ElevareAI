@@ -2,15 +2,20 @@
 
 In-repo, pytest-based eval harness for ElevareAI's AI surfaces (QA, summary,
 practice, guardrails). Full design: `_docs/local/plans/2026-07-16-evals-plan.md`.
-The user-facing "Running evals" section in the root README lands in E5.
+The user-facing "Running Evals" section is in the root README (E5).
 
 ## Phase status
 
-- **E0 (this phase): scaffolding.** Dataset schema + loader, a runner
-  skeleton, a report module, the `eval` pytest marker, and two deterministic
-  graders (`confidence_line_present`, `practice_json_valid`) — proven
-  end-to-end with a mock generator, zero API calls.
-- **E1 (next):** the remaining deterministic checks per surface (see below).
+**E0-E5 complete.** Dataset schema + loader, deterministic graders per
+surface, LLM-as-judge harness, guardrail/safety cases, cost/latency capture
+with committed baselines + regression comparison, and a manual
+(`workflow_dispatch`) CI job + root README "Running Evals" section.
+
+- **E0:** scaffolding — dataset schema + loader, a runner skeleton, a
+  report module, the `eval` pytest marker, and two deterministic graders
+  (`confidence_line_present`, `practice_json_valid`) — proven end-to-end
+  with a mock generator, zero API calls.
+- **E1:** the remaining deterministic checks per surface (see below).
 - **E2:** LLM-as-judge harness + curated golden sets.
 - **E3:** guardrail/safety cases.
 - **E4:** cost/latency capture + committed baselines + regression comparison.

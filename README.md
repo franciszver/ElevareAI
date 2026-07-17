@@ -3,7 +3,7 @@
 **ElevareAI** is a comprehensive AI-powered tutoring platform that supports students between sessions with adaptive practice, conversational Q&A, personalized nudges, and progress tracking.
 
 [![Status](https://img.shields.io/badge/status-production%20ready-green)]()
-[![Tests](https://img.shields.io/badge/tests-127%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-354%20passing-brightgreen)]()
 [![API](https://img.shields.io/badge/API-64%20endpoints-blue)]()
 [![Version](https://img.shields.io/badge/version-1.0.0-orange)]()
 
@@ -59,7 +59,7 @@ python run_server.py
 cd examples/frontend-starter
 npm install
 npm run dev
-# Open http://localhost:3000
+# Open http://localhost:5173
 ```
 
 ### Docker
@@ -90,6 +90,7 @@ docker-compose down
 - [Frontend Development](#-frontend-development)
 - [Deployment](#-deployment)
 - [Testing](#-testing)
+- [Running Evals](#-running-evals)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
 
@@ -130,9 +131,9 @@ docker-compose down
 - **Database**: PostgreSQL 15+
 - **ORM**: SQLAlchemy 2.0
 - **AI/LLM**: OpenRouter (free-tier openai/gpt-oss-20b:free model)
-- **Authentication**: AWS Cognito JWT
-- **Email**: AWS SES
-- **Testing**: Pytest (127 tests)
+- **Authentication**: Self-hosted JWT (bcrypt via passlib + HS256 via python-jose)
+- **Email**: Disabled (log-only no-op; no external email provider)
+- **Testing**: Pytest (354 tests)
 - **Logging**: Structlog
 - **Validation**: Pydantic 2.5
 
@@ -146,8 +147,8 @@ docker-compose down
 ### Infrastructure
 - **Containerization**: Docker & Docker Compose
 - **Database Migrations**: SQL migration scripts
-- **Deployment**: AWS-ready (ECS/Fargate, RDS, S3)
-- **CI/CD**: GitHub Actions (planned)
+- **Deployment**: Render (free tier) via `render.yaml` blueprint (web service + static site + Postgres)
+- **CI/CD**: GitHub Actions (tests, lint/format, security scan); evals workflow is manual (`workflow_dispatch`)
 - **Monitoring**: Built-in metrics endpoint
 - **Logging**: Structured logging with file rotation
 
@@ -266,23 +267,8 @@ DB_PASSWORD=your-password
 DB_POOL_SIZE=5
 DB_MAX_OVERFLOW=10
 
-# AWS Configuration
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# AWS Cognito (Authentication)
-COGNITO_USER_POOL_ID=your-pool-id
-COGNITO_CLIENT_ID=your-client-id
-COGNITO_REGION=us-east-1
-
-# AWS SES (Email)
-SES_FROM_EMAIL=noreply@yourdomain.com
-SES_REGION=us-east-1
-
-# AWS S3 (Optional - for transcripts)
-S3_BUCKET_NAME=your-bucket-name
-S3_REGION=us-east-1
+# JWT Authentication (self-hosted, HS256)
+JWT_SECRET=your-jwt-signing-secret
 
 # OpenRouter Configuration
 OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
@@ -424,7 +410,7 @@ python run_server.py
 
 The API supports two authentication methods:
 
-1. **User Authentication (AWS Cognito JWT)**
+1. **User Authentication (self-hosted JWT)**
    - Required for user-facing endpoints
    - Include the token in the Authorization header:
    ```
@@ -565,7 +551,7 @@ pytest --cov=src tests/
 ```
 
 ### Test Coverage
-- **127 tests** covering all features
+- **354 tests** covering all features
 - Unit tests for services and models
 - Integration tests for complete workflows
 - Edge case coverage for practice, progress, and Q&A
@@ -586,6 +572,71 @@ pytest --cov=src --cov-report=html tests/
 # Run only integration tests
 pytest tests/test_integration_*.py
 ```
+
+---
+
+## 🧮 Running Evals
+
+ElevareAI ships an in-repo, pytest-adjacent eval harness (`evals/`) that
+grades the AI surfaces (QA, summary, practice, guardrails) for structural
+correctness and quality. See `evals/README.md` for the full design,
+dataset schema, and grader details — this section covers the commands
+you'll actually run.
+
+### Offline commands (no API key required)
+
+```bash
+# Grade committed fixtures against the committed baseline; exits nonzero
+# on regression (pass-rate drop >10pts or p95 latency >1.5x baseline).
+python -m evals.run_eval
+
+# Per-case report on the captured fixtures (no baseline comparison).
+python -m evals.grade_fixtures
+
+# After an intentional, verified change to AI output shape/behavior,
+# re-snapshot the baseline from the current fixtures.
+python -m evals.run_eval --update-baseline
+```
+
+Both `run_eval` and `grade_fixtures` grade pre-captured fixtures
+(`evals/fixtures/`) — zero network calls, fully deterministic.
+
+### Two grading layers
+
+- **Deterministic** (`evals/graders/deterministic.py`) — structural/format
+  checks: valid JSON shape, no raw LaTeX delimiters, math ground-truth via
+  SymPy, canned refusals for out-of-scope questions, etc. Free, offline,
+  and the basis of the regression gate above.
+- **LLM-as-judge** (`evals/judge.py`) — rubric-scored quality (correctness,
+  pedagogy, faithfulness) for cases with a `rubric` field. The judge is
+  pluggable: for interactive runs, a Claude subagent can be driven as
+  judge via `export_judge_batch`/`import_judge_results`; for headless/CI
+  runs, `openrouter_judge` falls back to `google/gemma-4-31b-it:free`.
+  Judge scores are **advisory only** — the hard regression gate is the
+  deterministic pass-rate + p95 latency check, not judge scores.
+
+### Manual CI job
+
+`.github/workflows/evals.yml` runs the offline regression gate
+(`python -m evals.run_eval`) on demand only — **Actions → Evals → Run
+workflow**. It's `workflow_dispatch`-only (not on push/PR) to avoid
+burning OpenRouter free-tier budget and because free-tier model output
+varies run to run.
+
+### Adding a golden case
+
+Add an entry to the relevant `evals/datasets/*.yaml` file with `id`,
+`surface`, `input`, and optional `expect`/`rubric` fields — see
+`evals/README.md`'s "Case schema" section for the full spec.
+
+### Fixtures
+
+`evals/fixtures/` contains real captured `openai/gpt-oss-20b:free`
+outputs (not synthetic) used by the offline commands above. To recapture
+after a prompt/model change, re-run the app's live generation flow for
+each surface and overwrite the fixture files, then
+`python -m evals.run_eval --update-baseline` once the new outputs are
+verified correct.
 
 ---
 
@@ -694,7 +745,7 @@ PennyGadget/
 │       ├── logging_config.py      # Logging setup
 │       ├── metrics.py             # Metrics utilities
 │       └── cache.py               # Caching utilities
-├── tests/                          # Test suite (127 tests)
+├── tests/                          # Test suite (354 tests)
 │   ├── test_api_endpoints.py      # API endpoint tests
 │   ├── test_models.py             # Model tests
 │   ├── test_practice_edge_cases.py # Practice edge cases
@@ -774,7 +825,7 @@ See `_docs/NEXT_STEPS.md` for detailed next steps.
 ## 📊 Project Statistics
 
 - **API Endpoints**: 64+ endpoints across 12 route handlers
-- **Test Coverage**: 127 tests passing
+- **Test Coverage**: 354 tests passing
 - **Services**: 20+ service modules across 8 service categories
 - **Database Models**: 15+ SQLAlchemy models
 - **Frontend Pages**: 9 complete React pages
