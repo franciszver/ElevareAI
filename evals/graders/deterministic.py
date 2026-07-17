@@ -426,9 +426,10 @@ def _parse_summary_text(text: str):
     dict."""
     text = text or ""
     if "next steps" in text.lower() or "next:" in text.lower():
-        parts = re.split(
-            r"next steps:", text, maxsplit=1, flags=re.IGNORECASE
-        ) or re.split(r"next:", text, maxsplit=1, flags=re.IGNORECASE)
+        # Single alternation - see summarizer.py's generate_summary for why
+        # two separate re.split calls joined with `or` is broken (re.split
+        # always returns a non-empty list, so the `or` never falls through).
+        parts = re.split(r"next(?: steps)?:", text, maxsplit=1, flags=re.IGNORECASE)
         narrative = parts[0].strip()
         steps_text = parts[1].strip() if len(parts) > 1 else ""
         steps = (

@@ -286,6 +286,14 @@ class TestSummaryHasNarrative:
         result = det.summary_has_narrative("A plain AI summary paragraph.")
         assert result.passed is True
 
+    def test_raw_text_with_capitalized_next_steps_marker_parses_narrative(self):
+        # Mirrors summarizer.py's case-insensitive split; capitalization
+        # must not defeat parsing.
+        result = det.summary_has_narrative(
+            "Great session on quadratics.\nNext steps:\n1. Practice factoring\n2. Review the formula"
+        )
+        assert result.passed is True
+
 
 class TestSummaryHasNextSteps:
     def test_dict_with_two_steps_passes(self):
@@ -301,6 +309,15 @@ class TestSummaryHasNextSteps:
     def test_more_than_three_steps_fails(self):
         result = det.summary_has_next_steps({"next_steps": ["a", "b", "c", "d"]})
         assert result.passed is False
+
+    def test_raw_text_with_bare_next_marker_parses_steps(self):
+        # Regression test for the `re.split(...) or re.split(...)` bug:
+        # re.split always returns a non-empty list, so the `or` never fell
+        # through to the "next:" pattern when "next steps:" didn't match.
+        result = det.summary_has_next_steps(
+            "Great session.\nNext: Practice factoring, Review the formula"
+        )
+        assert result.passed is True
 
 
 class TestSummaryTypeMatchesDuration:

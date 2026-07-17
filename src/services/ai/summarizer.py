@@ -76,10 +76,15 @@ class SessionSummarizer:
                     "next steps" in ai_response.lower()
                     or "next:" in ai_response.lower()
                 ):
+                    # A single alternation, not two separate re.split calls
+                    # joined with `or` - re.split always returns a
+                    # non-empty list (even with no match), so that `or`
+                    # never falls through to the second pattern.
                     parts = re.split(
-                        r"next steps:", ai_response, maxsplit=1, flags=re.IGNORECASE
-                    ) or re.split(
-                        r"next:", ai_response, maxsplit=1, flags=re.IGNORECASE
+                        r"next(?: steps)?:",
+                        ai_response,
+                        maxsplit=1,
+                        flags=re.IGNORECASE,
                     )
                     narrative = parts[0].strip()
                     steps_text = parts[1].strip() if len(parts) > 1 else ""

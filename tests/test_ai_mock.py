@@ -57,6 +57,41 @@ def test_summarizer_offline(mock_ai):
     assert summary.next_steps == ["Review notes", "Practice problems"]
 
 
+def test_summarizer_parses_bare_next_marker(monkeypatch):
+    """Regression test for the `re.split(...) or re.split(...)` bug:
+    `re.split` always returns a non-empty list (even on no match), so the
+    `or` never falls through to the "next:" pattern when the "next steps:"
+    pattern doesn't match. A model response using the bare "Next:" marker
+    (no "steps") must still have its actual steps parsed out, not fall back
+    to the generic default."""
+    summarizer = SessionSummarizer()
+    monkeypatch.setattr(
+        summarizer.openai,
+        "chat_completion",
+        lambda prompt: (
+            "Great session on quadratics.\n"
+            "Next: Practice factoring, Review the quadratic formula"
+        ),
+    )
+
+    async def run():
+        return await summarizer.generate_summary(
+            session_id="11111111-1111-1111-1111-111111111111",
+            student_id="22222222-2222-2222-2222-222222222222",
+            tutor_id="33333333-3333-3333-3333-333333333333",
+            transcript="We covered quadratic equations today.",
+            session_duration_minutes=45,
+            subject="Math",
+            topics_covered=["Quadratic Equations"],
+            db=_FakeDb(),
+        )
+
+    summary = asyncio.run(run())
+
+    assert summary.narrative.strip() == "Great session on quadratics."
+    assert summary.next_steps == ["Practice factoring, Review the quadratic formula"]
+
+
 def test_practice_generation_offline(mock_ai):
     """generate_with_context should return a valid multiple-choice item with no network call"""
     service = PracticeQualityService()
