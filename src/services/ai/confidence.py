@@ -69,7 +69,7 @@ def calculate_confidence(
                 factors["llm_confidence"] = float(llm_score_match.group())
             else:
                 factors["llm_confidence"] = 0.5  # Default if parsing fails
-        except Exception as e:
+        except Exception:
             # If LLM assessment fails, use default
             factors["llm_confidence"] = 0.5
 

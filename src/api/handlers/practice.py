@@ -508,14 +508,10 @@ async def complete_practice(
             subject_id=str(assignment.subject_id) if assignment.subject_id else None,
         )
 
-        # Gamification removed - no longer awarding XP
-        xp_result = None
-        streak_info = None
     else:
         # Incorrect answer - don't mark as completed, but rating still updated
         # This allows ratings to decrease on poor performance
-        xp_result = None
-        streak_info = None
+        pass
 
     db.commit()
 

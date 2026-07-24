@@ -65,11 +65,9 @@ class AdvancedAnalytics:
         if USE_TEST_MODELS:
             OverrideModel = TestOverride
             SubjectModel = TestSubject
-            PracticeModel = TestPracticeAssignment
         else:
             OverrideModel = Override
             SubjectModel = Subject
-            PracticeModel = PracticeAssignment
 
         query = self.db.query(OverrideModel)
 

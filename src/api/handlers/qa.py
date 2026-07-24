@@ -295,7 +295,6 @@ async def submit_query(
     db.refresh(interaction)
 
     # Gamification removed - no longer awarding XP
-    xp_result = None
 
     # Build response with edge case metadata
     response_data = {
