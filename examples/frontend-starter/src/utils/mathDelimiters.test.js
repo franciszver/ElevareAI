@@ -83,4 +83,60 @@ describe('normalizeMathDelimiters', () => {
     expect(normalizeMathDelimiters(null)).toBe(null);
     expect(normalizeMathDelimiters(undefined)).toBe(undefined);
   });
+
+  it('leaves a doubly-escaped backslash-paren \\\\( ... \\\\) literal (2 backslashes = escaped, even)', () => {
+    // Sanity-pin for the parity rule: exactly 2 backslashes before the paren
+    // is EVEN -> escaped literal backslash, not a delimiter. (This mirrors
+    // the existing "gap 3" test above but states the parity rule by name.)
+    const BS = '\\'; // one literal backslash character
+    const input = `x ${BS.repeat(2)}(y${BS.repeat(2)}) z`;
+    expect(normalizeMathDelimiters(input)).toBe(input);
+  });
+
+  it('bug 1: odd backslash-run parity — 3 backslashes (literal + real delimiter) converts the real \\( \\)', () => {
+    // Old code only checked `text[i-1] === '\\'` (single-char lookback), so
+    // a THREE-backslash run before the paren was wrongly treated as escaped
+    // and the real, innermost `\(...\)` delimiter was never converted at
+    // all. Correct rule: the run of backslashes immediately preceding the
+    // bracket/paren is REAL iff its length is ODD (the final backslash
+    // pairs with the bracket; any earlier backslashes in the run are
+    // literal text). 3 backslashes = 1 literal backslash + 1 real delimiter
+    // backslash.
+    const BS = '\\'; // one literal backslash character
+    const input = `${BS.repeat(3)}(x${BS.repeat(3)})`;
+    const result = normalizeMathDelimiters(input);
+    // Pin the exact output: the leading/trailing literal backslash pairs
+    // are copied through verbatim; only the delimiter's own backslash+
+    // bracket pair is consumed and replaced with `$`.
+    expect(result).toBe(`${BS.repeat(2)}$x${BS.repeat(2)}$`);
+    // Key invariant (in case the exact-leftover-backslash placement above
+    // is considered debatable): the delimiter really did convert (an
+    // `$...x...$` span exists) and no raw `\(`/`\)` token remains.
+    expect(result).toMatch(/\$[^$]*x[^$]*\$/);
+    expect(result).not.toContain('\\(');
+    expect(result).not.toContain('\\)');
+  });
+
+  it('bug 2: nesting mask must use original-text coordinates, not re-derived $$ from transformed output', () => {
+    // `\[a $$ \(b\) \]` has a display span whose CONTENT contains a literal
+    // `$$` and a nested `\(b\)`. The old code re-scanned the *transformed*
+    // string for `$$..$$` pairs to build its nesting mask, so it paired the
+    // wrapper `$$` with the literal `$$` inside the content, leaving the
+    // nested `\(b\)` outside the (mis-derived) mask and wrongly converting
+    // it to `$b$` -> malformed `$$a $$ $b$ $$` (a bare unpaired `$` inside
+    // what should be one `$$..$$` span). The fix computes the nesting mask
+    // from original-text display-span coordinates (from pass 1), so the
+    // nested `\(b\)` is correctly recognized as inside the display span and
+    // left untouched.
+    const input = '\\[a $$ \\(b\\) \\]';
+    const result = normalizeMathDelimiters(input);
+    expect(result).toBe('$$a $$ \\(b\\) $$');
+    // Invariant: the nested \(b\) must not have been converted.
+    expect(result).not.toContain('$b$');
+  });
+
+  it('regression: an inline span between two display spans still converts independently', () => {
+    const input = '\\[a\\] \\(b\\) \\[c\\]';
+    expect(normalizeMathDelimiters(input)).toBe('$$a$$ $b$ $$c$$');
+  });
 });
