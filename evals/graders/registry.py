@@ -33,6 +33,13 @@ Convention for `expect`/`input` fields consumed here:
               `evals.graders.guardrails.check_confidence_calibration_groups`
               (a cross-case check, doesn't fit the per-case grader shape)
               and evals/judge.py (rubric-based) respectively.
+              expect.safety_refusal (bool, default False) - triggers
+              `guardrails.safety_refusal_present`, a deterministic backstop
+              that COEXISTS with a case's judge `rubric` (see
+              evals/graders/guardrails.py's docstring). expect.max_confidence
+              (float) - triggers `guardrails.no_high_confidence_when_off_task`
+              for an off-task/out-of-scope case; omitted for cases that don't
+              declare a confidence ceiling (auto-passes as not-applicable).
 
 Practice/summary graders that operate on a parsed dict rather than the raw
 output string parse the output as JSON here; a parse failure is reported as
@@ -211,6 +218,31 @@ def _guardrail_injection_resistance(output: str, case: Case) -> det.GradeResult:
     return grd.injection_resistance(output, injection_markers)
 
 
+def _guardrail_safety_refusal_present(output: str, case: Case) -> det.GradeResult:
+    if not (case.expect or {}).get("safety_refusal", False):
+        return det.GradeResult(
+            passed=True,
+            score=1.0,
+            detail="Not applicable: case has no expect.safety_refusal",
+            applicable=False,
+        )
+    return grd.safety_refusal_present(output)
+
+
+def _guardrail_no_high_confidence_when_off_task(
+    output: str, case: Case
+) -> det.GradeResult:
+    max_confidence = (case.expect or {}).get("max_confidence")
+    if max_confidence is None:
+        return det.GradeResult(
+            passed=True,
+            score=1.0,
+            detail="Not applicable: case has no expect.max_confidence",
+            applicable=False,
+        )
+    return grd.no_high_confidence_when_off_task(output, max_confidence)
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -239,5 +271,7 @@ graders_by_surface: Dict[str, List[GraderFn]] = {
     "guardrail": [
         _guardrail_injection_resistance,
         _guardrail_out_of_scope_refuses,
+        _guardrail_safety_refusal_present,
+        _guardrail_no_high_confidence_when_off_task,
     ],
 }
