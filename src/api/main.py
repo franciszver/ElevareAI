@@ -3,6 +3,7 @@ FastAPI Application
 Main entry point for AI Study Companion API
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -23,6 +24,12 @@ from src.config.database import check_database_connection, engine
 from src.config.settings import settings
 from src.models.base import Base
 from src.utils.logging_config import setup_logging
+
+# Bounded retry for the startup DB connectivity check: Render free-tier
+# Postgres can transiently refuse connections at boot, which would
+# otherwise kill the deploy on the first failed attempt.
+DB_STARTUP_MAX_ATTEMPTS = 5
+DB_STARTUP_RETRY_DELAY_SECONDS = 3
 
 
 def parse_allowed_origins(value: str) -> list[str]:
@@ -55,8 +62,19 @@ async def lifespan(app: FastAPI):
     # Store environment in app state for error handling
     app.state.environment = settings.environment
 
-    # Verify database connection
-    if not check_database_connection():
+    # Verify database connection, retrying a few times with a short delay to
+    # ride out transient connection refusals on boot (see DB_STARTUP_*).
+    db_ok = False
+    for attempt in range(1, DB_STARTUP_MAX_ATTEMPTS + 1):
+        if check_database_connection():
+            db_ok = True
+            break
+        logger.warning(
+            "Database connection attempt %d/%d failed", attempt, DB_STARTUP_MAX_ATTEMPTS
+        )
+        if attempt < DB_STARTUP_MAX_ATTEMPTS:
+            await asyncio.sleep(DB_STARTUP_RETRY_DELAY_SECONDS)
+    if not db_ok:
         logger.error("Database connection failed on startup")
         raise RuntimeError("Database connection failed on startup")
     logger.info("Database connection verified")
