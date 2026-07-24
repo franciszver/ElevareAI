@@ -395,9 +395,9 @@ def practice_math_answer_correct(
     import random
 
     from sympy import simplify
-    from sympy.parsing.sympy_parser import parse_expr
 
     from src.services.practice.math_generator import MathGenerator
+    from src.services.practice.safe_expr import safe_parse_expr
 
     method_name = _MATH_TOPIC_METHODS.get(topic)
     if method_name is None:
@@ -426,13 +426,13 @@ def practice_math_answer_correct(
 
     try:
         if topic == "expression_simplification":
-            item_value = parse_expr(item_choice_text)
+            item_value = safe_parse_expr(item_choice_text)
         else:
             # "x = 2.8" -> "2.8"; choices are bare numbers, not "x = ...".
-            item_value = parse_expr(
+            item_value = safe_parse_expr(
                 re.sub(r"^[A-Za-z]\w*\s*=\s*", "", item_choice_text)
             )
-        truth_value = parse_expr(str(ground_truth))
+        truth_value = safe_parse_expr(str(ground_truth))
         matches = simplify(item_value - truth_value) == 0
     except Exception as e:
         return GradeResult(

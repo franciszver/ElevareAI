@@ -20,9 +20,9 @@ from sympy import (
     simplify,
     solve,
     symbols,
-    sympify,
 )
-from sympy.parsing.sympy_parser import parse_expr
+
+from src.services.practice.safe_expr import safe_parse_expr
 
 
 def _real_roots(roots):
@@ -42,7 +42,7 @@ def _canonical_key(expr_str: str) -> str:
     real canonical key) if SymPy can't parse it, preserving string-only
     distinctness as a safety net for non-parseable candidates."""
     try:
-        return str(simplify(parse_expr(expr_str)))
+        return str(simplify(safe_parse_expr(expr_str)))
     except Exception:
         return f"__RAW__:{expr_str}"
 
@@ -473,11 +473,7 @@ class MathGenerator:
         answer = re.sub(r"[xX]\s*=\s*", "", answer)  # Remove "x = "
         answer = re.sub(r"^\s*=\s*", "", answer)  # Remove leading "="
 
-        try:
-            return sympify(answer)
-        except:
-            # Try parsing as expression
-            return parse_expr(answer)
+        return safe_parse_expr(answer)
 
     def _format_expression(self, expr) -> str:
         """Format a SymPy expression as a readable string"""
