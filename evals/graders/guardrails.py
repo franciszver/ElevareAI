@@ -346,6 +346,13 @@ def no_high_confidence_when_off_task(answer: str, max_confidence: float) -> Grad
     present at all, that's applicable=True/passed=True - a clean refusal
     with no self-assessed confidence is fine; only a HIGH confidence value
     on an off-task answer is the failure mode this guards against.
+
+    KNOWN GAP: only the literal `CONFIDENCE: <num>` format (matched by
+    `extract_confidence_value`'s regex) is detected. An answer that reports
+    confidence in different wording (e.g. "Confidence level: 96%") is
+    treated as having no CONFIDENCE line and passes regardless of how
+    confident it actually is. This regex-bypass is out of scope here and
+    tracked separately.
     """
     confidence = extract_confidence_value(answer)
     if confidence is None:
