@@ -26,6 +26,35 @@ PAYLOADS = [
     "().__class__.__bases__[0]",
 ]
 
+# Runtime-concatenation bypass: the raw text below never contains the
+# contiguous substrings "__", "import", "lambda", "exec", "eval", or a
+# backtick (each banned token is split across separate string literals
+# joined by "+", e.g. "_" + "_" and "imp" + "ort"), so the static
+# deny-list never fires on the OUTER string. But sympify()/S()/lambdify()
+# -- previously reachable via `from sympy import *` -- parse+eval their
+# *argument* string with sympy's own unrestricted globals, so at eval time
+# Python concatenates the pieces back into "__import__('os').system(...)"
+# and it executes. Confirmed executed via os.system before the allowlist
+# fix.
+CONCAT_SYMPIFY_PAYLOAD = (
+    'sympify("_" + "_" + "imp" + "ort" + "_" + "_" + "(" + "\'os\'" + ")" '
+    '+ "." + "system" + "(" + "\'echo PWNED\'" + ")")'
+)
+CONCAT_S_PAYLOAD = (
+    'S("_" + "_" + "imp" + "ort" + "_" + "_" + "(" + "\'os\'" + ")" '
+    '+ "." + "system" + "(" + "\'echo PWNED\'" + ")")'
+)
+CONCAT_LAMBDIFY_PAYLOAD = (
+    'lambdify([], "_" + "_" + "imp" + "ort" + "_" + "_" + "(" + "\'os\'" + ")" '
+    '+ "." + "system" + "(" + "\'echo PWNED\'" + ")")()'
+)
+
+CONCAT_BYPASS_PAYLOADS = [
+    CONCAT_SYMPIFY_PAYLOAD,
+    CONCAT_S_PAYLOAD,
+    CONCAT_LAMBDIFY_PAYLOAD,
+]
+
 
 @pytest.mark.parametrize("payload", PAYLOADS)
 def test_safe_parse_expr_never_executes_payload(payload):
@@ -68,6 +97,68 @@ def test_grader_never_executes_payload(payload):
         )
         mock_system.assert_not_called()
     assert result.passed is False
+
+
+@pytest.mark.parametrize("payload", CONCAT_BYPASS_PAYLOADS)
+def test_safe_parse_expr_never_executes_concat_bypass_payload(payload):
+    """sympify/S/lambdify must not be reachable from the parser namespace at
+    all, so these payloads should fail to execute regardless of whether the
+    deny-list catches them (it doesn't, by construction -- see the payload
+    comment above)."""
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        with pytest.raises(UnsafeExpressionError):
+            safe_parse_expr(payload)
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+
+
+@pytest.mark.parametrize("payload", CONCAT_BYPASS_PAYLOADS)
+def test_canonical_key_never_executes_concat_bypass_payload(payload):
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        key = _canonical_key(payload)
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    assert key == f"__RAW__:{payload}"
+
+
+@pytest.mark.parametrize("payload", CONCAT_BYPASS_PAYLOADS)
+def test_validate_answer_never_executes_concat_bypass_payload(payload):
+    mg = MathGenerator()
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        result = mg.validate_answer("irrelevant", payload, "1")
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    assert result["is_correct"] is False
+
+
+@pytest.mark.parametrize("payload", CONCAT_BYPASS_PAYLOADS)
+def test_grader_never_executes_concat_bypass_payload(payload):
+    from evals.graders.deterministic import practice_math_answer_correct
+
+    item_dict = {
+        "correct_answer": "A",
+        "choices": [f"A) {payload}"],
+        "difficulty": 5,
+    }
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        result = practice_math_answer_correct(
+            topic="expression_simplification", seed=1, item_dict=item_dict
+        )
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    assert result.passed is False
+
+
+def test_evalf_substring_not_falsely_rejected_by_denylist():
+    """Regression: the old deny-list regex matched the bare substring
+    `eval` anywhere in the input, so it would reject ANY legitimate string
+    that happens to contain sympy's `evalf` method name (e.g. a variable
+    named `evalf_result`), even though `evalf` is a safe, non-executing
+    sympy method and contains no dangerous token as a whole word."""
+    # "evalf_result" auto-parses as a plain symbol -- must not be rejected
+    # just because it contains the substring "eval".
+    result = safe_parse_expr("evalf_result + 1")
+    assert str(result) == "evalf_result + 1"
 
 
 def test_canonical_key_still_collapses_equivalent_expressions():
