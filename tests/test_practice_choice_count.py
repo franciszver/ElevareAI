@@ -85,16 +85,16 @@ def test_generate_quadratic_equation_always_4_distinct_choices():
 
 def test_format_choice_value_collapses_4dp_precision():
     """RED: dedup must use the same display precision as rendering.
-    Numbers differing only in 3rd/4th decimals (e.g. 1.234 vs 1.236) should
-    format to the same display string (both "1.23") so they never both appear
-    as "distinct" choices."""
+    Numbers differing only in 3rd/4th decimals should format to the same
+    display string so they never both appear as "distinct" choices.
+    E.g. 1.2301 and 1.2349 both round to "1.23" at 2dp."""
     from src.services.practice.math_generator import MathGenerator
 
     mg = MathGenerator()
 
-    # Helper should collapse both to same display string
-    assert mg._format_choice_value(1.234) == mg._format_choice_value(1.236)
-    assert mg._format_choice_value(1.234) == "1.23"
+    # Helper should collapse both to same display string (both round to 1.23)
+    assert mg._format_choice_value(1.2301) == mg._format_choice_value(1.2349)
+    assert mg._format_choice_value(1.2301) == "1.23"
 
     # Integer special case
     assert mg._format_choice_value(2.0) == "2"
