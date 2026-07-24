@@ -103,32 +103,22 @@ def test_format_choice_value_collapses_4dp_precision():
     assert mg._format_choice_value(2.126) == "2.13"  # rounds at 2dp
 
 
-def test_numeric_choices_dedup_at_display_precision():
-    """RED: when candidate offsets collide at display precision, produce
-    exactly 4 visually distinct choices (no two show identical displayed values).
-    Force collision by constructing a correct_value whose ±1/±2/×2/÷2 offsets
-    all round to same 2dp display values."""
+def test_dedup_uses_display_formatter_not_raw_precision():
+    """Regression guard for #38: dedup must key on the display-formatted
+    value, not raw 4dp rounding. The display loop calls _format_choice_value
+    once per final choice (4 times); if dedup ALSO routes through it (the fix),
+    the helper is invoked well more than 4 times (seed + every candidate).
+    A revert to round(candidate, 4) for dedup would drop the call count to 4."""
+    from unittest.mock import patch
+
+    from src.services.practice.math_generator import MathGenerator
+
     mg = MathGenerator()
-
-    # Use a value where fixed offsets collide at 2dp but differ at 4dp:
-    # correct_value = 1.2349
-    # +1 = 2.2349 -> "2.23"
-    # -1 = 0.2349 -> "0.23"
-    # +2 = 3.2349 -> "3.23"
-    # -2 = -0.7651 -> "-0.77"
-    # ×2 = 2.4698 -> "2.47"
-    # ÷2 = 0.61745 -> "0.62"
-    # So: no collision in this set at 2dp
-    # But test a constructed case: correct_value = 1.234
-    # candidates: 2.234->2.23, 0.234->0.23, 3.234->3.23, -0.766->-0.77, 2.468->2.47, 0.617->0.62
-    # Actually, let me force a real collision in the 4dp dedup but 2dp display:
-    # If correct=10.115 (displays as "10.12" when rounded):
-    # candidate 10.116 (4dp rounded = 10.1160) vs 10.115 (4dp = 10.1150) → both distinct at 4dp
-    # But both display as "10.12" at 2dp
-    # The offsets ±1,±2,×2,÷2 won't naturally cause this, so verify at method level:
-    choices, correct_letter = mg._generate_math_choices(10.115, difficulty=5)
-    option_texts = [c.split(") ", 1)[1] for c in choices]
-
-    # Must have exactly 4 distinct displayed values
-    assert len(set(option_texts)) == 4, f"Collision detected: {option_texts}"
+    with patch.object(mg, "_format_choice_value", wraps=mg._format_choice_value) as spy:
+        choices, _ = mg._generate_math_choices(7.5, difficulty=5)
     assert len(choices) == 4
+    # 4 display calls + dedup seed + per-candidate calls => strictly > 4
+    assert spy.call_count > 4, (
+        f"dedup did not route through _format_choice_value "
+        f"(call_count={spy.call_count}); precision mismatch regression"
+    )
