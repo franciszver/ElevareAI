@@ -53,6 +53,16 @@ class MathGenerator:
     def __init__(self):
         self.x, self.y, self.z = symbols("x y z")
 
+    def _format_choice_value(self, option: float) -> str:
+        """Format a numeric choice value for display.
+        Integer special case: 2.0 -> "2"
+        Decimal: use 2dp precision, strip trailing zeros.
+        E.g. 1.234 -> "1.23", 1.236 -> "1.23", 2.1 -> "2.1", 2.0 -> "2"."""
+        if option == int(option):
+            return str(int(option))
+        else:
+            return f"{option:.2f}".rstrip("0").rstrip(".")
+
     def generate_linear_equation(
         self, difficulty: int = 5, variable: str = "x"
     ) -> Dict:
@@ -345,13 +355,13 @@ class MathGenerator:
             candidates.append(correct_value * 2)  # wrong operation: doubled
             candidates.append(correct_value / 2)  # wrong operation: halved
 
-        seen = {round(correct_value, 4)}
+        seen = {self._format_choice_value(correct_value)}
         distractors = []
         for candidate in candidates:
-            rounded = round(candidate, 4)
-            if rounded in seen:
+            formatted = self._format_choice_value(candidate)
+            if formatted in seen:
                 continue
-            seen.add(rounded)
+            seen.add(formatted)
             distractors.append(candidate)
             if len(distractors) == 3:
                 break
@@ -362,9 +372,9 @@ class MathGenerator:
         extra = 3
         while len(distractors) < 3:
             candidate = correct_value + extra if extra % 2 else correct_value - extra
-            rounded = round(candidate, 4)
-            if rounded not in seen:
-                seen.add(rounded)
+            formatted = self._format_choice_value(candidate)
+            if formatted not in seen:
+                seen.add(formatted)
                 distractors.append(candidate)
             extra += 1
 
@@ -377,11 +387,8 @@ class MathGenerator:
 
         for i, option in enumerate(all_options):
             letter = chr(65 + i)
-            # Format number nicely
-            if option == int(option):
-                formatted = str(int(option))
-            else:
-                formatted = f"{option:.2f}".rstrip("0").rstrip(".")
+            # Format number nicely using the same logic as dedup
+            formatted = self._format_choice_value(option)
             choices.append(f"{letter}) {formatted}")
 
         return choices, correct_letter
