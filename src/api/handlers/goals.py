@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import joinedload
 
-from src.api.middleware.auth import get_current_user, get_current_user_optional
+from src.api.middleware.auth import get_current_user
 from src.config.database import get_db
 from src.config.settings import settings
 from src.models.goal import Goal
@@ -45,7 +45,7 @@ class CreateGoalRequest(BaseModel):
 async def get_goals(
     student_id: str = Query(..., description="Student ID"),
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user_optional),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Get all goals for a student
@@ -56,24 +56,16 @@ async def get_goals(
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid student_id format")
 
-    # Production: Verify user has access
-    if current_user:
-        user_sub = current_user.get("sub")
-        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+    # Verify user has access
+    user_sub = current_user.get("sub")
+    db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
 
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # Verify the student_id matches the authenticated user
-        if db_user.id != student_uuid:
-            raise HTTPException(status_code=403, detail="Access denied")
-    else:
-        # No auth - allow in development
-        if settings.environment != "development":
-            raise HTTPException(status_code=401, detail="Authentication required")
-        db_user = db.query(User).filter(User.id == student_uuid).first()
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    # Verify the student_id matches the authenticated user
+    if db_user.id != student_uuid:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Eager load subject relationship to avoid lazy loading issues
     goals = (
@@ -196,32 +188,23 @@ async def get_goals(
 async def create_goal(
     request: CreateGoalRequest,
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user_optional),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Create a new goal
     """
-    # Production: Verify user has access
-    if current_user:
-        user_sub = current_user.get("sub")
-        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+    # Verify user has access
+    user_sub = current_user.get("sub")
+    db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
 
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # Verify the student_id matches the authenticated user
-        if db_user.id != UUID(request.student_id):
-            raise HTTPException(status_code=403, detail="Access denied")
+    # Verify the student_id matches the authenticated user
+    if db_user.id != UUID(request.student_id):
+        raise HTTPException(status_code=403, detail="Access denied")
 
-        creator_id = db_user.id
-    else:
-        # No auth - allow in development
-        if settings.environment != "development":
-            raise HTTPException(status_code=401, detail="Authentication required")
-        db_user = db.query(User).filter(User.id == request.student_id).first()
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
-        creator_id = db_user.id
+    creator_id = db_user.id
 
     # Find subject if subject_name is provided, or create it if it doesn't exist
     subject_id = None
@@ -329,7 +312,7 @@ async def create_goal(
 async def reset_goal(
     goal_id: UUID,
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user_optional),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Reset a completed goal back to active status
@@ -346,20 +329,15 @@ async def reset_goal(
         raise HTTPException(status_code=404, detail="Goal not found")
 
     # Verify user has access
-    if current_user:
-        user_sub = current_user.get("sub")
-        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+    user_sub = current_user.get("sub")
+    db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
 
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # Verify the goal belongs to the authenticated user
-        if db_user.id != goal.student_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    else:
-        # No auth - allow in development
-        if settings.environment != "development":
-            raise HTTPException(status_code=401, detail="Authentication required")
+    # Verify the goal belongs to the authenticated user
+    if db_user.id != goal.student_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Only allow resetting completed goals
     if goal.status != "completed":
@@ -438,7 +416,7 @@ async def reset_goal(
 async def delete_goal(
     goal_id: UUID,
     db: DBSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user_optional),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Delete a goal and remove all related progress data
@@ -454,20 +432,15 @@ async def delete_goal(
         raise HTTPException(status_code=404, detail="Goal not found")
 
     # Verify user has access
-    if current_user:
-        user_sub = current_user.get("sub")
-        db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
+    user_sub = current_user.get("sub")
+    db_user = db.query(User).filter(User.cognito_sub == user_sub).first()
 
-        if not db_user:
-            raise HTTPException(status_code=404, detail="User not found")
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-        # Verify the goal belongs to the authenticated user
-        if db_user.id != goal.student_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    else:
-        # No auth - allow in development
-        if settings.environment != "development":
-            raise HTTPException(status_code=401, detail="Authentication required")
+    # Verify the goal belongs to the authenticated user
+    if db_user.id != goal.student_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     goal_id_str = str(goal_id)
 
