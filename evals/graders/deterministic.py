@@ -296,8 +296,7 @@ def practice_symbolic_distinct_choices(item_dict: Dict[str, Any]) -> GradeResult
             applicable=False,
         )
 
-    # Import here to avoid circular dependency; reuse the same canonicalization
-    # logic that math_generator uses for dedup (see src/services/practice/math_generator._canonical_key).
+    # In-function import (matches practice_math_answer_correct's style); reuse the same canonicalization math_generator uses for dedup (see src/services/practice/math_generator._canonical_key).
     from src.services.practice.math_generator import _canonical_key
 
     canonical_keys = []

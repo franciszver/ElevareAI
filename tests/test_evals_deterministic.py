@@ -345,6 +345,17 @@ class TestPracticeSymbolicDistinctChoices:
         result = det.practice_symbolic_distinct_choices(item)
         assert result.passed is False
 
+    def test_not_applicable_with_fewer_than_two_choices(self):
+        """Items with fewer than 2 choices should mark the grader as not applicable."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) Only one choice"],
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.applicable is False
+        assert result.passed is True
+        assert "not applicable" in result.detail.lower()
+
 
 class TestSummaryHasNarrative:
     def test_dict_with_narrative_passes(self):
