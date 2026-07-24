@@ -11,6 +11,14 @@ Database expiry is confirmed if:
 
 ## Recovery Steps (Estimated Time: ~5 minutes)
 
+### 0. Try Blueprint Sync First
+
+Before manual provisioning, check if Render can auto-recover the database:
+
+Dashboard → Blueprints → Manual Sync may recreate `elevareai-db` and rebind `DATABASE_URL` automatically, since the database is declared in `render.yaml`. After syncing, verify in the Render dashboard whether the sync recreated the database:
+- **If yes:** Skip to Step 4 (re-seed) and then Step 6 (verify).
+- **If no:** Continue with Steps 1–5 as the manual fallback.
+
 ### 1. Provision New Database
 
 Go to [Render Dashboard](https://dashboard.render.com):
@@ -25,6 +33,8 @@ Go to [Render Dashboard](https://dashboard.render.com):
 
 Note the database creation timestamp in the dashboard—you'll need to set a calendar reminder for ~day 28.
 
+**Note:** A manually-created database is NOT part of the Blueprint's managed resource group, even if given the same name. A future Blueprint sync may attempt to re-provision `elevareai-db` and conflict. Verify in the Render dashboard after any later Blueprint sync.
+
 ### 2. Get Connection Credentials
 
 From the new database's page in Render dashboard:
@@ -35,7 +45,7 @@ From the new database's page in Render dashboard:
 
 On your local machine (or wherever you run the seed script):
 
-```bash
+```env
 # Create/update .env with credentials extracted from the External Database URL
 # The URL format is: postgresql://user:password@host:port/dbname
 # So map to:
@@ -69,7 +79,7 @@ Output shows demo login credentials (email + password). Demo account password = 
 
 In Render dashboard, go to **elevareai-api** service settings:
 - Environment variables
-- Update `DATABASE_URL` with the new External Database URL from the new database
+- Update `DATABASE_URL` with the new **Internal Database URL** from the new database (the exact label may vary in the Render dashboard; verify the option is available before using it; use the External URL only if the Internal URL isn't offered or reachable)
 - Save and trigger **Manual Deploy**
 - Wait for deploy to complete (~2 min)
 
