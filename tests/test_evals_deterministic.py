@@ -273,6 +273,102 @@ class TestPracticeMathAnswerCorrect:
 # ---------------------------------------------------------------------------
 
 
+class TestPracticeSymbolicDistinctChoices:
+    """Test the symbolic_distinct_choices grader for detecting when multiple-choice
+    options are mathematically equivalent but textually different."""
+
+    def test_all_distinct_math_expressions_pass(self):
+        """Four symbolically distinct math expressions should pass."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) x + 1", "B) 2*x", "C) x**2", "D) x + 2"],
+            "question_text": "Which is a distinct expression for a 30+ char question",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.passed is True
+
+    def test_two_symbolically_equal_choices_fail(self):
+        """Two mathematically equivalent but textually different expressions should fail.
+        '2*x + 2' and '2*(x + 1)' both simplify to the same thing."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) 2*x + 2", "B) 2*(x + 1)", "C) x + 1", "D) x + 2"],
+            "question_text": "Which is a distinct expression for a 30+ char question",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.passed is False
+        assert (
+            "equivalent" in result.detail.lower()
+            or "identical" in result.detail.lower()
+        )
+
+    def test_non_math_text_choices_pass_through(self):
+        """Non-parseable word choices (e.g., 'Paris') should pass through as not causing failure.
+        Unparseable choices are not failures - the grader is about math dedup, not structure.
+        """
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) Paris", "B) London", "C) Berlin", "D) Madrid"],
+            "question_text": "What is the capital of France for a history question?",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        # Non-math choices should either pass (not applicable) or pass through
+        assert result.passed is True
+        # If not applicable, mark it as such
+        if (
+            "not applicable" in result.detail.lower()
+            or "non-math" in result.detail.lower()
+        ):
+            assert result.applicable is False
+
+    def test_duplicate_non_math_words_fail(self):
+        """Two identical non-math word choices should fail."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) Paris", "B) Paris", "C) Berlin", "D) Madrid"],
+            "question_text": "What is the capital of France for a history question?",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        # Duplicate text should fail regardless of math parsing
+        assert result.passed is False
+
+    def test_mixed_math_and_text_all_distinct_pass(self):
+        """Mix of parseable math and non-parseable text, all distinct."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) x + 1", "B) x + 2", "C) Paris", "D) Berlin"],
+            "question_text": "Which is a distinct expression for a 30+ char question",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.passed is True
+
+    def test_three_mathematically_identical_fail(self):
+        """Three expressions that all simplify to the same value should fail."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": [
+                "A) x**2 + 2*x + 1",
+                "B) (x+1)**2",
+                "C) (x+1)*(x+1)",
+                "D) x + 2",
+            ],
+            "question_text": "Which is a distinct expression for a 30+ char question",
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.passed is False
+
+    def test_not_applicable_with_fewer_than_two_choices(self):
+        """Items with fewer than 2 choices should mark the grader as not applicable."""
+        item = {
+            **GOOD_PRACTICE_ITEM,
+            "choices": ["A) Only one choice"],
+        }
+        result = det.practice_symbolic_distinct_choices(item)
+        assert result.applicable is False
+        assert result.passed is True
+        assert "not applicable" in result.detail.lower()
+
+
 class TestSummaryHasNarrative:
     def test_dict_with_narrative_passes(self):
         result = det.summary_has_narrative({"narrative": "You covered mitosis today."})

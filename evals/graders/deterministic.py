@@ -278,6 +278,51 @@ def practice_no_raw_latex(item_dict: Dict[str, Any]) -> GradeResult:
     )
 
 
+def practice_symbolic_distinct_choices(item_dict: Dict[str, Any]) -> GradeResult:
+    """Check that a practice item's multiple-choice options are symbolically distinct.
+    Reuses src/services/practice/math_generator._canonical_key to normalize
+    mathematical expressions so mathematically-identical-but-textually-different
+    candidates (e.g., '2*x + 2' and '2*(x + 1)') are detected as duplicates.
+
+    Unparseable (non-math) choices are keyed by their raw text so word-based
+    distractors still get dedup'd (e.g., two "Paris" choices should fail);
+    text-only items with all-distinct choices pass through (applicable=True)."""
+    choices = item_dict.get("choices")
+    if not isinstance(choices, list) or len(choices) < 2:
+        return GradeResult(
+            passed=True,
+            score=1.0,
+            detail="Not applicable: fewer than 2 choices",
+            applicable=False,
+        )
+
+    # In-function import (matches practice_math_answer_correct's style); reuse the same canonicalization math_generator uses for dedup (see src/services/practice/math_generator._canonical_key).
+    from src.services.practice.math_generator import _canonical_key
+
+    canonical_keys = []
+    for choice in choices:
+        # Strip leading "A) ", "B) ", etc. prefix (mirrors practice_no_placeholder_distractors)
+        text = re.sub(r"^[A-D]\)\s*", "", str(choice)).strip()
+        key = _canonical_key(text)
+        canonical_keys.append((choice, text, key))
+
+    # Find duplicates by checking if the same canonical key appears more than once.
+    seen_keys = {}
+    for choice, text, key in canonical_keys:
+        if key in seen_keys:
+            return GradeResult(
+                passed=False,
+                score=0.0,
+                detail=f"Choices '{seen_keys[key]}' and '{text}' are symbolically equivalent "
+                f"(both simplify to '{key}')",
+            )
+        seen_keys[key] = text
+
+    return GradeResult(
+        passed=True, score=1.0, detail="All choices are symbolically distinct"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Practice math ground-truth grader
 # ---------------------------------------------------------------------------

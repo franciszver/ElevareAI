@@ -229,8 +229,8 @@ cases:
       operation: expand
       example_output: >-
         {"question_text": "Expand: (x + 2)*(x + 5)", "answer_text":
-        "x**2 + 7*x + 10", "choices": ["A) x**2 + 7*x + 10 * 2", "B) x**2 +
-        7*x + 11", "C) x**2 + 7*x + 10 + 1", "D) x**2 + 7*x + 10"],
+        "x**2 + 7*x + 10", "choices": ["A) x**2 + 7*x + 20", "B) x**2 +
+        7*x + 11", "C) x**2 + 6*x + 10", "D) x**2 + 7*x + 10"],
         "correct_answer": "D", "explanation": "Expanding the expression:
         (x + 2)*(x + 5) = x**2 + 7*x + 10", "solution": "x**2 + 7*x + 10",
         "difficulty": 6}

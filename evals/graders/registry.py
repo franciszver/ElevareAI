@@ -148,6 +148,9 @@ _practice_no_placeholder_distractors = _on_parsed_item(
     det.practice_no_placeholder_distractors
 )
 _practice_no_raw_latex = _on_parsed_item(det.practice_no_raw_latex)
+_practice_symbolic_distinct_choices = _on_parsed_item(
+    det.practice_symbolic_distinct_choices
+)
 
 
 def _practice_math_answer_correct_if_applicable(
@@ -225,6 +228,7 @@ graders_by_surface: Dict[str, List[GraderFn]] = {
         _practice_question_quality,
         _practice_no_placeholder_distractors,
         _practice_no_raw_latex,
+        _practice_symbolic_distinct_choices,
         _practice_math_answer_correct_if_applicable,
     ],
     "summary": [
