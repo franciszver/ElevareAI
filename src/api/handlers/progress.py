@@ -156,8 +156,6 @@ async def get_progress(
         .all()
     )
 
-    all_goals = active_goals + recent_completed
-
     # Check if first login (disclaimer not shown)
     disclaimer_required = not db_user.disclaimer_shown
 
