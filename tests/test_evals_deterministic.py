@@ -297,7 +297,7 @@ class TestPracticeSymbolicDistinctChoices:
         }
         result = det.practice_symbolic_distinct_choices(item)
         assert result.passed is False
-        assert "distinct" in result.detail.lower()
+        assert "equivalent" in result.detail.lower() or "identical" in result.detail.lower()
 
     def test_non_math_text_choices_pass_through(self):
         """Non-parseable word choices (e.g., 'Paris') should pass through as not causing failure.
