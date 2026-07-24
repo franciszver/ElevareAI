@@ -225,11 +225,10 @@ class TestProgressOwnership:
 
         resp = client.get(f"/api/v1/progress/{student.id}")
 
-        # FastAPI's HTTPBearer(auto_error=True) raises 403, not 401, when the
-        # Authorization header is entirely absent (it only 401s on a header
-        # that's present but invalid) - same behavior already documented in
-        # tests/test_auth_middleware.py::test_missing_authorization_header_returns_401_or_403.
-        assert resp.status_code == 403
+        # get_current_user's HTTPBearer scheme uses auto_error=False and
+        # raises an explicit 401 when credentials are absent, so missing and
+        # invalid tokens both consistently 401 (#32).
+        assert resp.status_code == 401
 
     def test_get_progress_malformed_token_returns_401(self, client, db_session):
         student = _create_user(db_session, "progress-e@example.com")
