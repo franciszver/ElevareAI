@@ -55,6 +55,20 @@ CONCAT_BYPASS_PAYLOADS = [
     CONCAT_LAMBDIFY_PAYLOAD,
 ]
 
+# String-constructor exploits: sympy's Float, Rational, Integer accept string
+# arguments and previously parsed them as Python code. These constructors are
+# in the sandbox allowlist (whitelist), but must be defended against
+# string-based RCE payloads: they should either parse strings as inert symbols
+# or reject them via UnsafeExpressionError, never executing os.system or
+# subprocess.Popen.
+STRING_CONSTRUCTOR_PAYLOADS = [
+    "Float(\"(lambda: os.system('id'))()\")",  # lambda RCE, no __ substring
+    "Rational(\"__import__('os').system('id')\", \"1\")",  # __ substring, deny-listed
+    "Integer(\"__import__('os').system('id')\")",  # __ substring, deny-listed
+    "Float(\"os.system('id')\")",  # os.system call, no __ substring
+    "S(\"os.system('id')\")",  # bare S with os.system
+]
+
 
 @pytest.mark.parametrize("payload", PAYLOADS)
 def test_safe_parse_expr_never_executes_payload(payload):
@@ -180,3 +194,65 @@ def test_validate_answer_still_validates_legit_answers():
 
     wrong = mg.validate_answer("solve", "x**2 + 7*x + 10", "x**2+7*x+11")
     assert wrong["is_correct"] is False
+
+
+@pytest.mark.parametrize("payload", STRING_CONSTRUCTOR_PAYLOADS)
+def test_safe_parse_expr_never_executes_string_constructor_payload(payload):
+    """Regression: string-accepting sympy constructors (Float, Rational,
+    Integer) are whitelisted, but they must not execute malicious strings.
+    They should either parse as inert symbols or raise UnsafeExpressionError,
+    never calling os.system or subprocess.Popen."""
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        try:
+            result = safe_parse_expr(payload)
+            # If parsing succeeds, the result must be inert (a symbol, not
+            # executed code). Verify no side effects occurred.
+            assert result is not None
+        except UnsafeExpressionError:
+            # Legitimate rejection if the payload is caught by the deny-list.
+            pass
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+
+
+@pytest.mark.parametrize("payload", STRING_CONSTRUCTOR_PAYLOADS)
+def test_canonical_key_never_executes_string_constructor_payload(payload):
+    """Regression: _canonical_key must not execute string-constructor
+    payloads, either parsing them safely or falling back to __RAW__."""
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        key = _canonical_key(payload)
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    # Unparseable/rejected candidates fall back to the raw-string safety net.
+    assert key == f"__RAW__:{payload}"
+
+
+@pytest.mark.parametrize("payload", STRING_CONSTRUCTOR_PAYLOADS)
+def test_validate_answer_never_executes_string_constructor_payload(payload):
+    """Regression: MathGenerator.validate_answer must not execute
+    string-constructor payloads."""
+    mg = MathGenerator()
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        result = mg.validate_answer("irrelevant", payload, "1")
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    assert result["is_correct"] is False
+
+
+@pytest.mark.parametrize("payload", STRING_CONSTRUCTOR_PAYLOADS)
+def test_grader_never_executes_string_constructor_payload(payload):
+    """Regression: eval grader must not execute string-constructor payloads."""
+    from evals.graders.deterministic import practice_math_answer_correct
+
+    item_dict = {
+        "correct_answer": "A",
+        "choices": [f"A) {payload}"],
+        "difficulty": 5,
+    }
+    with patch("os.system") as mock_system, patch("subprocess.Popen") as mock_popen:
+        result = practice_math_answer_correct(
+            topic="expression_simplification", seed=1, item_dict=item_dict
+        )
+        mock_system.assert_not_called()
+        mock_popen.assert_not_called()
+    assert result.passed is False
