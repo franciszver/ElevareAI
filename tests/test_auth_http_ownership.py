@@ -248,3 +248,66 @@ class TestProgressOwnership:
         resp = client.get(f"/api/v1/progress/{student.id}", headers=_auth(expired))
 
         assert resp.status_code == 401
+
+
+class TestNoDevAuthBypass:
+    """#32: goals/progress must require auth in ALL environments, including
+    development. settings.environment is explicitly patched to "development"
+    in each test so these pin the fixed behavior independent of whatever
+    ENVIRONMENT happens to be set to in the ambient shell/.env.
+    """
+
+    def test_get_goals_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-a@example.com")
+
+        resp = client.get(f"/api/v1/goals?student_id={student.id}")
+
+        assert resp.status_code == 401
+
+    def test_create_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-b@example.com")
+
+        resp = client.post(
+            "/api/v1/goals",
+            json={"student_id": student.id, "title": "Should not be created"},
+        )
+
+        assert resp.status_code == 401
+
+    def test_reset_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-c@example.com")
+        goal = _create_goal(db_session, student, status="completed")
+
+        resp = client.post(f"/api/v1/goals/{goal.id}/reset")
+
+        assert resp.status_code == 401
+
+    def test_delete_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-d@example.com")
+        goal = _create_goal(db_session, student)
+
+        resp = client.delete(f"/api/v1/goals/{goal.id}")
+
+        assert resp.status_code == 401
+
+    def test_get_progress_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-e@example.com")
+
+        resp = client.get(f"/api/v1/progress/{student.id}")
+
+        assert resp.status_code == 401
