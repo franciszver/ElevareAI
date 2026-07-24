@@ -297,11 +297,15 @@ class TestPracticeSymbolicDistinctChoices:
         }
         result = det.practice_symbolic_distinct_choices(item)
         assert result.passed is False
-        assert "equivalent" in result.detail.lower() or "identical" in result.detail.lower()
+        assert (
+            "equivalent" in result.detail.lower()
+            or "identical" in result.detail.lower()
+        )
 
     def test_non_math_text_choices_pass_through(self):
         """Non-parseable word choices (e.g., 'Paris') should pass through as not causing failure.
-        Unparseable choices are not failures - the grader is about math dedup, not structure."""
+        Unparseable choices are not failures - the grader is about math dedup, not structure.
+        """
         item = {
             **GOOD_PRACTICE_ITEM,
             "choices": ["A) Paris", "B) London", "C) Berlin", "D) Madrid"],
@@ -311,7 +315,10 @@ class TestPracticeSymbolicDistinctChoices:
         # Non-math choices should either pass (not applicable) or pass through
         assert result.passed is True
         # If not applicable, mark it as such
-        if "not applicable" in result.detail.lower() or "non-math" in result.detail.lower():
+        if (
+            "not applicable" in result.detail.lower()
+            or "non-math" in result.detail.lower()
+        ):
             assert result.applicable is False
 
     def test_duplicate_non_math_words_fail(self):
@@ -339,7 +346,12 @@ class TestPracticeSymbolicDistinctChoices:
         """Three expressions that all simplify to the same value should fail."""
         item = {
             **GOOD_PRACTICE_ITEM,
-            "choices": ["A) x**2 + 2*x + 1", "B) (x+1)**2", "C) (x+1)*(x+1)", "D) x + 2"],
+            "choices": [
+                "A) x**2 + 2*x + 1",
+                "B) (x+1)**2",
+                "C) (x+1)*(x+1)",
+                "D) x + 2",
+            ],
             "question_text": "Which is a distinct expression for a 30+ char question",
         }
         result = det.practice_symbolic_distinct_choices(item)
