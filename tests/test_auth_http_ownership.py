@@ -225,11 +225,10 @@ class TestProgressOwnership:
 
         resp = client.get(f"/api/v1/progress/{student.id}")
 
-        # FastAPI's HTTPBearer(auto_error=True) raises 403, not 401, when the
-        # Authorization header is entirely absent (it only 401s on a header
-        # that's present but invalid) - same behavior already documented in
-        # tests/test_auth_middleware.py::test_missing_authorization_header_returns_401_or_403.
-        assert resp.status_code == 403
+        # get_current_user's HTTPBearer scheme uses auto_error=False and
+        # raises an explicit 401 when credentials are absent, so missing and
+        # invalid tokens both consistently 401 (#32).
+        assert resp.status_code == 401
 
     def test_get_progress_malformed_token_returns_401(self, client, db_session):
         student = _create_user(db_session, "progress-e@example.com")
@@ -246,5 +245,68 @@ class TestProgressOwnership:
         expired = _token(student, expires_minutes=-1)
 
         resp = client.get(f"/api/v1/progress/{student.id}", headers=_auth(expired))
+
+        assert resp.status_code == 401
+
+
+class TestNoDevAuthBypass:
+    """#32: goals/progress must require auth in ALL environments, including
+    development. settings.environment is explicitly patched to "development"
+    in each test so these pin the fixed behavior independent of whatever
+    ENVIRONMENT happens to be set to in the ambient shell/.env.
+    """
+
+    def test_get_goals_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-a@example.com")
+
+        resp = client.get(f"/api/v1/goals?student_id={student.id}")
+
+        assert resp.status_code == 401
+
+    def test_create_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-b@example.com")
+
+        resp = client.post(
+            "/api/v1/goals",
+            json={"student_id": student.id, "title": "Should not be created"},
+        )
+
+        assert resp.status_code == 401
+
+    def test_reset_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-c@example.com")
+        goal = _create_goal(db_session, student, status="completed")
+
+        resp = client.post(f"/api/v1/goals/{goal.id}/reset")
+
+        assert resp.status_code == 401
+
+    def test_delete_goal_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-d@example.com")
+        goal = _create_goal(db_session, student)
+
+        resp = client.delete(f"/api/v1/goals/{goal.id}")
+
+        assert resp.status_code == 401
+
+    def test_get_progress_no_token_returns_401_in_development(
+        self, client, db_session, monkeypatch
+    ):
+        monkeypatch.setattr("src.config.settings.settings.environment", "development")
+        student = _create_user(db_session, "dev-bypass-e@example.com")
+
+        resp = client.get(f"/api/v1/progress/{student.id}")
 
         assert resp.status_code == 401

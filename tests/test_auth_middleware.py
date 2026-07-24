@@ -90,17 +90,19 @@ class TestGetCurrentUser:
         )
         assert resp.status_code == 401
 
-    def test_missing_authorization_header_returns_401_or_403(self, middleware_client):
-        # HTTPBearer's default behavior for a missing header (unchanged by
-        # this rewrite) - snapshot whatever the current status is.
+    def test_missing_authorization_header_returns_401(self, middleware_client):
+        # HTTPBearer is configured with auto_error=False, so a missing header
+        # reaches get_current_user, which raises an explicit 401.
         resp = middleware_client.get("/whoami")
-        assert resp.status_code in (401, 403)
+        assert resp.status_code == 401
 
-    def test_malformed_scheme_returns_401_or_403(self, middleware_client):
+    def test_malformed_scheme_returns_401(self, middleware_client):
+        # Same explicit 401 path in get_current_user for a wrong-scheme
+        # Authorization header.
         resp = middleware_client.get(
             "/whoami", headers={"Authorization": "Basic sometoken"}
         )
-        assert resp.status_code in (401, 403)
+        assert resp.status_code == 401
 
     def test_mock_token_is_rejected_with_401(self, middleware_client):
         """The mock-token-* bypass has been sunset; it must be treated as an
@@ -230,6 +232,23 @@ class TestRequireRole:
         )
         resp = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
+
+    def test_no_credentials_returns_401(self, db_session):
+        """With auto_error=False on the shared HTTPBearer, missing
+        credentials must still reach get_current_user's explicit 401 raise
+        (not an AttributeError/500) even behind require_role."""
+        from src.config.database import get_db
+
+        app = self._build_role_app(["admin"])
+
+        def override_get_db():
+            yield db_session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        client = TestClient(app)
+        resp = client.get("/protected")
+        assert resp.status_code == 401
 
     def test_cognito_groups_claim_is_ignored(self, db_session, monkeypatch):
         """Local JWTs never carry a 'cognito:groups' claim; require_role must

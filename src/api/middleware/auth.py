@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as DBSession
 from src.config.database import get_db
 from src.services.auth import InvalidTokenError, decode_token
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def verify_token(token: str) -> dict:
@@ -24,7 +24,7 @@ def verify_token(token: str) -> dict:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Security(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> dict:
     """
     Get current authenticated user from JWT token
@@ -32,6 +32,13 @@ async def get_current_user(
     Returns:
         dict: Token payload with user information (sub, email, etc.)
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
 
     payload = verify_token(token)
